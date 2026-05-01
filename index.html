@@ -15,11 +15,13 @@
     </div>
     <div id="authContainer"></div>
     <div class="header-actions" id="teacherActions">
-      <button class="btn btn-outline" id="exportDataBtn">📤 导出备份</button>
-      <button class="btn btn-outline" id="importDataBtn">📥 导入备份</button>
-      <button class="btn btn-outline" id="docxImportBtn">导入 DOCX</button>
-      <button class="btn btn-outline" id="docxFolderImportBtn">导入文件夹</button>
-      <button class="btn btn-primary" id="addExamBtn">➕ 新建试卷</button>
+      <div class="teacher-create-menu">
+        <button class="btn btn-primary" id="newExamMenuBtn" type="button">+ 新建试卷</button>
+        <div class="teacher-create-dropdown hidden" id="newExamMenu">
+          <button type="button" id="docxFolderImportBtn">上传文件夹</button>
+          <button type="button" id="addExamBtn">手动输入</button>
+        </div>
+      </div>
     </div>
   </header>
 
@@ -104,10 +106,7 @@
     </div>
   </div>
 
-  <input type="file" id="importFileInput" accept=".json" style="display:none;">
-  <input type="file" id="importFolderInput" webkitdirectory multiple style="display:none;">
   <input type="file" id="imageUploadInput" accept="image/*" style="display:none;">
-  <input type="file" id="docxImportInput" accept=".docx,.txt" multiple style="display:none;">
   <input type="file" id="docxFolderInput" webkitdirectory multiple style="display:none;">
   
   <div class="footer-note">

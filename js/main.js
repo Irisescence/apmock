@@ -33,7 +33,6 @@
   let editingExamId = null;
   let pendingImageCallback = null;
   let isSavingExam = false;
-  let examWorkspaceHandle = null;
   let currentRole = "guest";
   let canEditExams = false;
   let selectedSubjectFilter = 'all';
@@ -43,8 +42,6 @@
   const modalTitle = document.getElementById('modalTitle');
   const examForm = document.getElementById('examForm');
   const examTypeSelect = document.getElementById('examType');
-  const importFileInput = document.getElementById('importFileInput');
-  const importFolderInput = document.getElementById('importFolderInput');
   const imageUploadInput = document.getElementById('imageUploadInput');
   const subjectFilter = document.getElementById('subjectFilter');
 
@@ -341,6 +338,7 @@ window.startExam = function(examId) {
   window.deleteExam = async function(examId) {
     if (confirm('确定删除这套试卷吗？')) {
       await examDB.deleteExam(examId);
+      EXAMS = await examDB.getUserExams();
       await renderExamCards();
     }
   };
@@ -369,10 +367,12 @@ window.startExam = function(examId) {
     
     q.options?.forEach((opt, optIndex) => {
       const letter = String.fromCharCode(65 + optIndex);
+      const optionText = typeof opt === 'string' ? opt : (opt?.text || '');
       html += `
         <div class="option-row">
           <span style="width:24px; font-weight:600;">${letter}</span>
-          <input type="text" name="q${qIndex}_opt${optIndex}" value="${(typeof opt === 'string' ? opt : (opt?.text || '')).replace(/"/g, '&quot;')}" placeholder="选项 ${letter}" required>
+          <input type="text" name="q${qIndex}_opt${optIndex}" value="${optionText.replace(/"/g, '&quot;')}" placeholder="选项 ${letter}" required>
+          <input type="hidden" name="q${qIndex}_opt${optIndex}_image_urls" value="${escapeAttribute(JSON.stringify(typeof opt === 'object' && Array.isArray(opt.image_urls) ? opt.image_urls : []))}">
           <button type="button" class="btn-icon" onclick="setMCQCorrect(${qIndex}, ${optIndex})" 
                   style="background:${q.correct === optIndex ? '#4caf50' : 'white'}; color:${q.correct === optIndex ? 'white' : '#1e2b5e'};">
             ✓
@@ -383,6 +383,9 @@ window.startExam = function(examId) {
     
     html += `
         <input type="hidden" name="q${qIndex}_correct" value="${q.correct || 0}" id="q${qIndex}_correct">
+        <input type="hidden" name="q${qIndex}_image_urls" value="${escapeAttribute(JSON.stringify(Array.isArray(q.image_urls) ? q.image_urls : (q.image ? [q.image] : [])))}">
+        <input type="hidden" name="q${qIndex}_explanation" value="${escapeAttribute(q.explanation || '')}">
+        <input type="hidden" name="q${qIndex}_import_warnings" value="${escapeAttribute(JSON.stringify(Array.isArray(q.import_warnings) ? q.import_warnings : []))}">
       </div>
     `;
     
@@ -651,270 +654,6 @@ imageUploadInput.addEventListener('change', (e) => {
   reader.readAsDataURL(file);
 });
 
-function slugifyFileName(value, fallback = 'exam') {
-  return (value || fallback)
-    .toString()
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9\u4e00-\u9fa5]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 60) || fallback;
-}
-
-function sanitizePathSegment(value, fallback = 'item') {
-  return (value || fallback)
-    .toString()
-    .replace(/[\\/:*?"<>|]/g, '-')
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 60) || fallback;
-}
-
-function getExtensionFromMimeType(mimeType) {
-  const map = {
-    'image/jpeg': 'jpg',
-    'image/png': 'png',
-    'image/gif': 'gif',
-    'image/webp': 'webp',
-    'image/svg+xml': 'svg',
-    'image/bmp': 'bmp'
-  };
-  return map[mimeType] || 'png';
-}
-
-function dataUrlToBlob(dataUrl) {
-  const matches = /^data:([^;,]+)?(?:;base64)?,(.*)$/.exec(dataUrl || '');
-  if (!matches) {
-    throw new Error('Invalid image data');
-  }
-
-  const mimeType = matches[1] || 'application/octet-stream';
-  const binary = atob(matches[2]);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-  return new Blob([bytes], { type: mimeType });
-}
-
-function fileToDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = () => reject(reader.error || new Error('Failed to read file'));
-    reader.readAsDataURL(file);
-  });
-}
-
-async function writeTextFile(dirHandle, fileName, content) {
-  const fileHandle = await dirHandle.getFileHandle(fileName, { create: true });
-  const writable = await fileHandle.createWritable();
-  await writable.write(content);
-  await writable.close();
-}
-
-async function writeBlobFile(dirHandle, fileName, blob) {
-  const fileHandle = await dirHandle.getFileHandle(fileName, { create: true });
-  const writable = await fileHandle.createWritable();
-  await writable.write(blob);
-  await writable.close();
-}
-
-async function ensureExamWorkspaceHandle() {
-  if (examWorkspaceHandle) {
-    return examWorkspaceHandle;
-  }
-
-  if (typeof window.showDirectoryPicker !== 'function') {
-    throw new Error('Current browser does not support folder writing. Please open the page in a recent Chromium browser.');
-  }
-
-  examWorkspaceHandle = await window.showDirectoryPicker({
-    id: 'ap-exam-workspace',
-    mode: 'readwrite'
-  });
-  return examWorkspaceHandle;
-}
-
-function buildExamPackage(exam) {
-  const assets = [];
-
-  const registerImage = (dataUrl, preferredName) => {
-    if (!dataUrl || typeof dataUrl !== 'string' || !dataUrl.startsWith('data:image/')) {
-      return dataUrl || null;
-    }
-
-    const blob = dataUrlToBlob(dataUrl);
-    const extension = getExtensionFromMimeType(blob.type);
-    const baseName = sanitizePathSegment(preferredName, `image-${assets.length + 1}`);
-    const fileName = `${baseName}.${extension}`;
-    assets.push({ path: `images/${fileName}`, blob });
-    return `images/${fileName}`;
-  };
-
-  const questions = (exam.questions || []).map((question, qIndex) => {
-    if (question.type === 'mcq') {
-      return {
-        ...question,
-        image: registerImage(question.image, `q${qIndex + 1}`)
-      };
-    }
-
-    return {
-      ...question,
-      parts: (question.parts || []).map((part, partIdx) => ({
-        ...part,
-        image: registerImage(part.image, `q${qIndex + 1}-part${partIdx + 1}`),
-        subParts: (part.subParts || []).map((subPart, subIdx) => ({
-          ...subPart,
-          image: registerImage(subPart.image, `q${qIndex + 1}-part${partIdx + 1}-sub${subIdx + 1}`)
-        }))
-      }))
-    };
-  });
-
-  return {
-    folderName: sanitizePathSegment(`${exam.subject || 'exam'}-${exam.title || exam.id}`),
-    manifest: {
-      id: exam.id,
-      subject: exam.subject,
-      title: exam.title,
-      description: exam.description,
-      timeLimit: exam.timeLimit,
-      examType: exam.examType,
-      isPublic: !!exam.isPublic,
-      createdAt: exam.createdAt || new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      questions
-    },
-    assets
-  };
-}
-
-async function writeExamPackageToDirectory(rootHandle, exam) {
-  const pkg = buildExamPackage(exam);
-  const examDirHandle = await rootHandle.getDirectoryHandle(pkg.folderName, { create: true });
-  const imageDirHandle = await examDirHandle.getDirectoryHandle('images', { create: true });
-
-  for (const asset of pkg.assets) {
-    const fileName = asset.path.split('/').pop();
-    await writeBlobFile(imageDirHandle, fileName, asset.blob);
-  }
-
-  await writeTextFile(examDirHandle, 'exam.json', JSON.stringify(pkg.manifest, null, 2));
-  return pkg.folderName;
-}
-
-async function syncExamToWorkspace(exam) {
-  const rootHandle = await ensureExamWorkspaceHandle();
-  const folderName = await writeExamPackageToDirectory(rootHandle, exam);
-  return folderName;
-}
-
-async function resolveImagePathToDataUrl(fileMap, baseFolder, relativePath) {
-  if (!relativePath) {
-    return null;
-  }
-  if (typeof relativePath === 'string' && relativePath.startsWith('data:image/')) {
-    return relativePath;
-  }
-
-  const normalizedBase = baseFolder ? `${baseFolder}/` : '';
-  const normalizedPath = `${normalizedBase}${relativePath}`.replace(/\\/g, '/');
-  const file = fileMap.get(normalizedPath);
-  if (!file) {
-    return null;
-  }
-  return fileToDataUrl(file);
-}
-
-async function hydrateImportedExam(manifest, folderPath, fileMap) {
-  const hydratedQuestions = [];
-
-  for (const question of manifest.questions || []) {
-    if (question.type === 'mcq') {
-      hydratedQuestions.push({
-        ...question,
-        image: await resolveImagePathToDataUrl(fileMap, folderPath, question.image)
-      });
-      continue;
-    }
-
-    const parts = [];
-    for (const part of question.parts || []) {
-      const subParts = [];
-      for (const subPart of part.subParts || []) {
-        subParts.push({
-          ...subPart,
-          image: await resolveImagePathToDataUrl(fileMap, folderPath, subPart.image)
-        });
-      }
-
-      parts.push({
-        ...part,
-        image: await resolveImagePathToDataUrl(fileMap, folderPath, part.image),
-        subParts
-      });
-    }
-
-    hydratedQuestions.push({
-      ...question,
-      parts
-    });
-  }
-
-  return {
-    ...manifest,
-    questions: hydratedQuestions
-  };
-}
-
-async function importExamsFromFolderFiles(files) {
-  const fileMap = new Map();
-  const manifestFiles = [];
-
-  Array.from(files || []).forEach((file) => {
-    const relativePath = (file.webkitRelativePath || file.name).replace(/\\/g, '/');
-    fileMap.set(relativePath, file);
-    if (relativePath.endsWith('/exam.json') || relativePath === 'exam.json') {
-      manifestFiles.push({ file, relativePath });
-    }
-  });
-
-  if (manifestFiles.length === 0) {
-    throw new Error('No exam.json files were found in the selected folder');
-  }
-
-  let importedCount = 0;
-  for (const manifestEntry of manifestFiles) {
-    const manifestText = await manifestEntry.file.text();
-    const manifest = JSON.parse(manifestText);
-    const pathParts = manifestEntry.relativePath.split('/');
-    pathParts.pop();
-    const folderPath = pathParts.join('/');
-    const hydratedExam = await hydrateImportedExam(manifest, folderPath, fileMap);
-    await examDB.saveExam(hydratedExam);
-    importedCount += 1;
-  }
-
-  EXAMS = await examDB.getUserExams();
-  await renderExamCards();
-  return importedCount;
-}
-
-async function exportAllExamsToFolder() {
-  const rootHandle = await ensureExamWorkspaceHandle();
-  const exportFolderName = `ap-exam-export-${new Date().toISOString().slice(0, 10)}`;
-  const exportRootHandle = await rootHandle.getDirectoryHandle(exportFolderName, { create: true });
-
-  for (const exam of EXAMS) {
-    await writeExamPackageToDirectory(exportRootHandle, exam);
-  }
-
-  return exportFolderName;
-}
-
 examForm.addEventListener('submit', async (e) => {
   e.preventDefault();
   if (!requireTeacherPermission()) return;
@@ -988,6 +727,23 @@ examForm.addEventListener('submit', async (e) => {
   container.innerHTML = html;
 }
 
+  function escapeAttribute(value) {
+    return String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/"/g, '&quot;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+
+  function parseJsonArray(value) {
+    try {
+      const parsed = JSON.parse(value || '[]');
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (error) {
+      return [];
+    }
+  }
+
   examTypeSelect.addEventListener('change', () => {
   examTypeSelect.value = 'mcq';
 });
@@ -1029,56 +785,28 @@ examForm.addEventListener('submit', async (e) => {
     await renderExamCards();
   });
 
-  // 导出
-  document.getElementById('exportDataBtn').addEventListener('click', async () => {
+  const newExamMenuBtn = document.getElementById('newExamMenuBtn');
+  const newExamMenu = document.getElementById('newExamMenu');
+
+  if (newExamMenuBtn && newExamMenu) {
+    newExamMenuBtn.addEventListener('click', (event) => {
+      if (!requireTeacherPermission()) return;
+      event.stopPropagation();
+      newExamMenu.classList.toggle('hidden');
+    });
+
+    newExamMenu.addEventListener('click', (event) => {
+      event.stopPropagation();
+    });
+
+    document.addEventListener('click', () => {
+      newExamMenu.classList.add('hidden');
+    });
+  }
+
+  document.getElementById('addExamBtn')?.addEventListener('click', () => {
     if (!requireTeacherPermission()) return;
-    try {
-      const folderName = await exportAllExamsToFolder();
-      alert(`导出完成，文件夹已写入: ${folderName}`);
-    } catch (error) {
-      console.error('Export failed:', error);
-      alert('导出失败: ' + error.message);
-    }
-  });
-
-  // 导入
-  document.getElementById('importDataBtn').addEventListener('click', () => {
-    if (!requireTeacherPermission()) return;
-    importFolderInput.click();
-  });
-
-  importFileInput.addEventListener('change', async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    
-    const reader = new FileReader();
-    reader.onload = async (ev) => {
-      try {
-        const data = JSON.parse(ev.target.result);
-        await examDB.importData(ev.target.result);
-        await renderExamCards();
-        alert('导入成功！');
-      } catch (err) {
-        alert('导入失败：' + err.message);
-      }
-      importFileInput.value = '';
-    };
-    reader.readAsText(file);
-  });
-
-  importFolderInput.addEventListener('change', async (e) => {
-    try {
-      const importedCount = await importExamsFromFolderFiles(e.target.files);
-      alert(`导入完成，共导入 ${importedCount} 套试卷`);
-    } catch (err) {
-      console.error('Import failed:', err);
-      alert('导入失败: ' + err.message);
-    }
-    importFolderInput.value = '';
-  });
-
-  document.getElementById('addExamBtn').addEventListener('click', () => {
-    if (!requireTeacherPermission()) return;
+    newExamMenu?.classList.add('hidden');
     openEditor(null);
   });
   if (subjectFilter) {
@@ -1104,7 +832,12 @@ window.getCurrentQuestionsFromForm = function() {
       const options = [];
       for (let i = 0; i < 4; i++) {
         const optInput = item.querySelector(`input[name="q${idx}_opt${i}"]`);
-        options.push(optInput?.value || `选项 ${String.fromCharCode(65 + i)}`);
+        const optionImageInput = item.querySelector(`input[name="q${idx}_opt${i}_image_urls"]`);
+        options.push({
+          label: String.fromCharCode(65 + i),
+          text: optInput?.value || `选项 ${String.fromCharCode(65 + i)}`,
+          image_urls: parseJsonArray(optionImageInput?.value)
+        });
       }
       
       const correctInput = item.querySelector(`input[name="q${idx}_correct"]`);
@@ -1112,13 +845,23 @@ window.getCurrentQuestionsFromForm = function() {
       
       const imageInput = item.querySelector(`input[name="q${idx}_image"]`);
       const image = imageInput?.value || null;
+      const imageUrlsInput = item.querySelector(`input[name="q${idx}_image_urls"]`);
+      const imageUrls = parseJsonArray(imageUrlsInput?.value);
+      if (image && image !== 'null' && !imageUrls.includes(image)) {
+        imageUrls.unshift(image);
+      }
+      const explanationInput = item.querySelector(`input[name="q${idx}_explanation"]`);
+      const importWarningsInput = item.querySelector(`input[name="q${idx}_import_warnings"]`);
       
       questions.push({ 
         type: 'mcq', 
         text, 
         options, 
         correct, 
-        image: image && image !== 'null' ? image : null 
+        image: image && image !== 'null' ? image : null,
+        image_urls: imageUrls,
+        explanation: explanationInput?.value || '',
+        import_warnings: parseJsonArray(importWarningsInput?.value)
       });
     } else {
       // FRQ 题目解析

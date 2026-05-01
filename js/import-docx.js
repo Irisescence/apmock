@@ -176,7 +176,7 @@
     modal.innerHTML = `
       <div class="docx-preview-modal">
         <div class="docx-preview-header"><div><h2>DOCX 导入预览</h2><p>AI 只识别题目和选项；答案只来自答案文档或教师手动填写。</p></div><button type="button" class="icon-btn" id="closeDocxPreviewBtn">×</button></div>
-        <div class="docx-exam-fields"><label>标题<input id="docxExamTitle" value="${escapeHtml(parsedExam.exam_title || "Imported AP Exam")}"></label><label>科目<select id="docxExamSubject">${SUBJECTS.map((subject) => `<option value="${subject}" ${subject === parsedExam.subject ? "selected" : ""}>${subject}</option>`).join("")}</select></label><label>描述<input id="docxExamDesc" value="${escapeHtml(parsedExam.description || "Imported from DOCX")}"></label></div>
+        <div class="docx-exam-fields"><label>标题<input id="docxExamTitle" value="${escapeHtml(parsedExam.exam_title || "Imported AP Exam")}"></label><label>科目<select id="docxExamSubject">${SUBJECTS.map((subject) => `<option value="${subject}" ${subject === parsedExam.subject ? "selected" : ""}>${subject}</option>`).join("")}</select></label><label>时长（分钟）<input id="docxExamTime" type="number" min="1" value="${Number(parsedExam.time_limit || parsedExam.timeLimit || 70)}"></label><label>可见性<select id="docxExamVisibility"><option value="private" ${parsedExam.is_public || parsedExam.isPublic ? "" : "selected"}>仅自己可见</option><option value="public" ${parsedExam.is_public || parsedExam.isPublic ? "selected" : ""}>公开</option></select></label><label class="docx-desc-field">描述<input id="docxExamDesc" value="${escapeHtml(parsedExam.description || "Imported from DOCX")}"></label></div>
         <div id="docxQuestionList" class="docx-question-list"></div>
         <div class="docx-preview-actions"><button class="btn btn-outline" type="button" id="addDocxQuestionBtn">新增题目</button><button class="btn btn-primary" type="button" id="confirmDocxImportBtn">确认导入</button></div>
       </div>`;
@@ -210,7 +210,7 @@
       if (!correctAnswer) warnings.push("missing_correct_answer");
       return { ...original, question_number: index + 1, question_text: questionText, options, correct_answer: correctAnswer, explanation: card.querySelector("[data-field='explanation']").value.trim(), warnings };
     });
-    importState = { ...importState, exam_title: $("docxExamTitle").value.trim(), subject: $("docxExamSubject").value, description: $("docxExamDesc").value.trim(), questions };
+    importState = { ...importState, exam_title: $("docxExamTitle").value.trim(), subject: $("docxExamSubject").value, description: $("docxExamDesc").value.trim(), timeLimit: Number($("docxExamTime").value) || 70, isPublic: $("docxExamVisibility").value === "public", questions };
     return importState;
   }
 
@@ -220,7 +220,7 @@
     const state = collectPreviewState();
     const incomplete = state.questions.filter((question) => question.warnings?.length);
     if (incomplete.length && !confirm(`${incomplete.length} 道题仍有警告，确定继续导入吗？`)) return;
-    const examData = { title: state.exam_title || "Imported AP Exam", subject: state.subject || "AP MacroEconomics", description: state.description || "Imported from DOCX", timeLimit: 70, examType: "mcq", isPublic: false, questions: state.questions.map((question) => ({ type: "mcq", text: question.question_text, options: question.options, correct: answerToIndex(question.correct_answer), image: question.question_images?.[0] || null, image_urls: question.question_images || [], explanation: question.explanation || "", import_warnings: question.warnings || [] })) };
+    const examData = { title: state.exam_title || "Imported AP Exam", subject: state.subject || "AP MacroEconomics", description: state.description || "Imported from DOCX", timeLimit: state.timeLimit || 70, examType: "mcq", isPublic: !!state.isPublic, questions: state.questions.map((question) => ({ type: "mcq", text: question.question_text, options: question.options, correct: answerToIndex(question.correct_answer), image: question.question_images?.[0] || null, image_urls: question.question_images || [], explanation: question.explanation || "", import_warnings: question.warnings || [] })) };
     try { showStatus("正在保存到 Supabase..."); await examDB.saveExam(examData); hideStatus(); alert("导入成功。页面将刷新显示新试卷。"); window.location.reload(); } catch (error) { hideStatus(); alert("导入失败：" + error.message); }
   }
 
@@ -244,11 +244,13 @@
   }
 
   function initDocxImport() {
-    const importBtn = $("docxImportBtn"), folderBtn = $("docxFolderImportBtn"), importInput = $("docxImportInput"), folderInput = $("docxFolderInput");
-    if (!importBtn || !folderBtn || !importInput || !folderInput) return;
-    importBtn.addEventListener("click", () => importInput.click());
-    folderBtn.addEventListener("click", () => folderInput.click());
-    importInput.addEventListener("change", async (event) => { await handleFiles(event.target.files); importInput.value = ""; });
+    const folderBtn = $("docxFolderImportBtn"), folderInput = $("docxFolderInput");
+    if (!folderBtn || !folderInput) return;
+    folderBtn.addEventListener("click", () => {
+      const menu = $("newExamMenu");
+      if (menu) menu.classList.add("hidden");
+      folderInput.click();
+    });
     folderInput.addEventListener("change", async (event) => { await handleFiles(event.target.files); folderInput.value = ""; });
   }
 

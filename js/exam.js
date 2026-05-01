@@ -31,6 +31,18 @@
   function getOptionImages(option) {
     return typeof option === "object" && Array.isArray(option.image_urls) ? option.image_urls : [];
   }
+
+  function getQuestionImages(question) {
+    const urls = Array.isArray(question?.image_urls) ? [...question.image_urls] : [];
+    if (question?.image && !urls.includes(question.image)) urls.unshift(question.image);
+    return urls.filter(Boolean);
+  }
+
+  function renderQuestionImages(question) {
+    const images = getQuestionImages(question);
+    if (!images.length) return "";
+    return `<div class="question-image">${images.map((url) => `<img src="${url}" alt="Question image">`).join("")}</div>`;
+  }
   function formatPercent(value) {
     return `${Math.round(value)}%`;
   }
@@ -239,7 +251,7 @@
 
             <div class="question-content">
               <div class="question-text">${currentQIndex + 1}. ${escapeHtml(q.text)}</div>
-              ${q.image ? `<div class="question-image"><img src="${q.image}" alt="Question image"></div>` : ""}
+              ${renderQuestionImages(q)}
             </div>
           </div>
         </section>
@@ -399,7 +411,7 @@
               <span class="review-status ${isCorrect ? "correct" : "wrong"}">${isCorrect ? "Correct" : "Incorrect"}</span>
             </div>
             <div style="font-size:28px; line-height:1.6; margin-bottom:24px;">${escapeHtml(q.text)}</div>
-            ${q.image ? `<div class="question-image" style="margin-bottom:24px;"><img src="${q.image}" alt="Review image"></div>` : ""}
+            ${renderQuestionImages(q)}
             <div class="review-options">
               ${q.options.map((opt, optIdx) => {
                 const letter = String.fromCharCode(65 + optIdx);
@@ -424,6 +436,7 @@
                 `;
               }).join("")}
             </div>
+            ${q.explanation ? `<div class="review-explanation"><strong>Explanation</strong><p>${escapeHtml(q.explanation)}</p></div>` : ""}
             <div style="display:flex; gap:12px; margin-top:24px;">
               <button class="btn btn-outline" onclick="selectReviewQuestion(${Math.max(0, reviewSelectedIndex - 1)})" ${reviewSelectedIndex === 0 ? "disabled" : ""}>Previous</button>
               <button class="btn btn-outline" onclick="selectReviewQuestion(${Math.min(total - 1, reviewSelectedIndex + 1)})" ${reviewSelectedIndex === total - 1 ? "disabled" : ""}>Next</button>

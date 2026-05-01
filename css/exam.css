@@ -273,6 +273,8 @@ body {
 
 .question-image {
   display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
   justify-content: center;
   padding: 14px;
   margin-top: 18px;
@@ -377,6 +379,15 @@ body {
 .option-text {
   font-size: 18px;
   line-height: 1.6;
+}
+
+.option-inline-image {
+  max-width: min(100%, 260px);
+  max-height: 180px;
+  object-fit: contain;
+  border: 1px solid var(--ap-border);
+  background: #fff;
+  padding: 4px;
 }
 
 .mcq-footer {
@@ -626,6 +637,21 @@ body {
   font-family: "Segoe UI", Tahoma, sans-serif;
   font-size: 12px;
   font-weight: 700;
+  color: var(--ap-blue);
+}
+
+.review-explanation {
+  margin-top: 22px;
+  padding: 16px 18px;
+  border: 1px solid #cfdbee;
+  background: #f7faff;
+  font-family: "Segoe UI", Tahoma, sans-serif;
+  line-height: 1.55;
+}
+
+.review-explanation strong {
+  display: block;
+  margin-bottom: 6px;
   color: var(--ap-blue);
 }
 

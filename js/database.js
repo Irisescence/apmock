@@ -45,6 +45,9 @@ class ExamDatabase {
   }
 
   mapQuestionRow(row) {
+    const imageUrls = Array.isArray(row.image_urls)
+      ? row.image_urls
+      : (row.image_url ? [row.image_url] : []);
     return {
       id: row.id,
       type: row.type || 'mcq',
@@ -52,7 +55,11 @@ class ExamDatabase {
       options: Array.isArray(row.options) ? row.options : [],
       correct: Number.isInteger(row.correct) ? row.correct : 0,
       image: row.image_url || null,
-      imageUrl: row.image_url || null
+      imageUrl: row.image_url || null,
+      image_urls: imageUrls,
+      explanation: row.explanation || '',
+      import_warnings: Array.isArray(row.import_warnings) ? row.import_warnings : [],
+      payload: row.payload || null
     };
   }
 
