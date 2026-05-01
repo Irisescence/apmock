@@ -24,6 +24,13 @@
       .replace(/'/g, "&#39;");
   }
 
+  function getOptionText(option) {
+    return typeof option === "string" ? option : (option?.text || "");
+  }
+
+  function getOptionImages(option) {
+    return typeof option === "object" && Array.isArray(option.image_urls) ? option.image_urls : [];
+  }
   function formatPercent(value) {
     return `${Math.round(value)}%`;
   }
@@ -251,7 +258,7 @@
                 return `
                   <div class="option-item ${selected === idx ? "selected" : ""}" onclick="selectOption(${idx})">
                     <span class="option-prefix">${letter}</span>
-                    <span class="option-text">${escapeHtml(opt)}</span>
+                    <span class="option-text">${escapeHtml(getOptionText(opt))}</span>${getOptionImages(opt).map((url) => `<img class="option-inline-image" src="${url}" alt="Option image">`).join("")}
                   </div>
                 `;
               }).join("")}
@@ -411,7 +418,7 @@
                 return `
                   <div class="review-option ${optionClass.trim()}">
                     <span class="option-prefix">${letter}</span>
-                    <span>${escapeHtml(opt)}</span>
+                    <span>${escapeHtml(getOptionText(opt))}</span>${getOptionImages(opt).map((url) => `<img class="option-inline-image" src="${url}" alt="Option image">`).join("")}
                     ${label}
                   </div>
                 `;

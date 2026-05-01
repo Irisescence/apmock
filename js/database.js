@@ -131,16 +131,33 @@ class ExamDatabase {
   }
 
   normalizeQuestion(question, index, examId) {
-    const options = Array.isArray(question.options) ? question.options.slice(0, 4) : [];
-    while (options.length < 4) options.push('');
+    const rawOptions = Array.isArray(question.options) ? question.options : [];
+    const options = rawOptions.map((option, optionIndex) => {
+      if (typeof option === 'string') {
+        return { label: String.fromCharCode(65 + optionIndex), text: option, image_urls: [] };
+      }
+      return {
+        label: option.label || String.fromCharCode(65 + optionIndex),
+        text: option.text || '',
+        image_urls: Array.isArray(option.image_urls) ? option.image_urls : []
+      };
+    });
+    while (options.length < 4) {
+      options.push({ label: String.fromCharCode(65 + options.length), text: '', image_urls: [] });
+    }
+    const imageUrls = Array.isArray(question.image_urls) ? question.image_urls : (question.image ? [question.image] : []);
     return {
       exam_id: examId,
       type: 'mcq',
       text: question.text || '',
       options,
       correct: Number.isInteger(question.correct) ? question.correct : parseInt(question.correct || '0', 10) || 0,
-      image_url: question.image || question.imageUrl || null,
-      question_order: index
+      image_url: question.image || question.imageUrl || imageUrls[0] || null,
+      image_urls: imageUrls,
+      explanation: question.explanation || '',
+      import_warnings: Array.isArray(question.import_warnings) ? question.import_warnings : [],
+      question_order: index,
+      payload: question.payload || null
     };
   }
 

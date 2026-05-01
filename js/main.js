@@ -372,7 +372,7 @@ window.startExam = function(examId) {
       html += `
         <div class="option-row">
           <span style="width:24px; font-weight:600;">${letter}</span>
-          <input type="text" name="q${qIndex}_opt${optIndex}" value="${opt.replace(/"/g, '&quot;')}" placeholder="选项 ${letter}" required>
+          <input type="text" name="q${qIndex}_opt${optIndex}" value="${(typeof opt === 'string' ? opt : (opt?.text || '')).replace(/"/g, '&quot;')}" placeholder="选项 ${letter}" required>
           <button type="button" class="btn-icon" onclick="setMCQCorrect(${qIndex}, ${optIndex})" 
                   style="background:${q.correct === optIndex ? '#4caf50' : 'white'}; color:${q.correct === optIndex ? 'white' : '#1e2b5e'};">
             ✓
