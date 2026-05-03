@@ -10,8 +10,10 @@
   let pausedRemainingSeconds = null;
   let examSubmitted = false;
   let reviewMode = false;
+  let inProgressReviewMode = false;
   let reviewSelectedIndex = 0;
   let isHistoryReview = false;
+  let submitConfirmOpen = false;
 
   let leftPaneWidth = 52;
   let questionScale = 100;
@@ -70,6 +72,26 @@
 
   function getExamViewStyle() {
     return `--left-pane-width:${leftPaneWidth}%; --question-scale:${(questionScale / 100).toFixed(2)}; --image-scale:${(imageScale / 100).toFixed(2)};`;
+  }
+
+  function isQuestionAnswered(index) {
+    return userAnswers[index] !== -1 && userAnswers[index] !== null && userAnswers[index] !== undefined;
+  }
+
+  function getAnsweredCount() {
+    return userAnswers.filter((answer) => answer !== -1 && answer !== null && answer !== undefined).length;
+  }
+
+  function renderQuestionStatusGrid({ activeIndex = currentQIndex, clickAction = "jumpToQuestion" } = {}) {
+    return `
+      <div class="completion-grid">
+        ${examData.questions.map((question, index) => {
+          const answeredClass = isQuestionAnswered(index) ? "answered" : "unanswered";
+          const activeClass = index === activeIndex ? "active" : "";
+          return `<button class="completion-dot ${answeredClass} ${activeClass}" type="button" onclick="${clickAction}(${index})">${index + 1}</button>`;
+        }).join("")}
+      </div>
+    `;
   }
 
   async function init() {
@@ -200,7 +222,7 @@
         timerDisplay.textContent = formatTime(getRemainingSeconds());
       }
       if (getRemainingSeconds() <= 0 && !examSubmitted) {
-        submitExam();
+        window.confirmSubmitExam();
       }
     }, 250);
   }
@@ -222,8 +244,10 @@
       return;
     }
 
-    document.getElementById("examApp").innerHTML =
-      examData.examType === "mcq" ? renderMCQLayout() : renderFRQLayout();
+    const content = inProgressReviewMode
+      ? renderInProgressReview()
+      : (examData.examType === "mcq" ? renderMCQLayout() : renderFRQLayout());
+    document.getElementById("examApp").innerHTML = content + renderSubmitConfirmModal();
   }
 
   function renderHeader(centerTitle, centerStatus, rightContent) {
@@ -247,6 +271,23 @@
           ${rightContent}
         </div>
       </div>
+    `;
+  }
+
+  function renderTopRightControls(extraContent = "") {
+    const qCount = examData.questions.length;
+    const questionNav = examData.examType === "mcq" && !inProgressReviewMode ? `
+      <div class="top-question-nav">
+        <button class="btn btn-sm" onclick="prevQuestion()" ${currentQIndex === 0 ? "disabled" : ""}>Back</button>
+        <button class="btn btn-sm" onclick="nextQuestion()" ${currentQIndex === qCount - 1 ? "disabled" : ""}>Next</button>
+      </div>
+    ` : "";
+    const reviewButton = inProgressReviewMode ? "" : `<button class="btn btn-sm" onclick="showInProgressReview()">Review</button>`;
+    return `
+      ${questionNav}
+      ${reviewButton}
+      ${extraContent}
+      <div class="timer-badge"><span id="timerDisplay">${formatTime(getRemainingSeconds())}</span></div>
     `;
   }
 
@@ -275,13 +316,13 @@
 
     const q = examData.questions[currentQIndex];
     const selected = userAnswers[currentQIndex];
-    const answeredCount = userAnswers.filter((answer) => answer !== -1).length;
+    const answeredCount = getAnsweredCount();
 
     return `
       ${renderHeader(
         examData.title,
         `Question ${currentQIndex + 1} of ${qCount} | Answered ${answeredCount} of ${qCount}`,
-        `<div class="timer-badge"><span id="timerDisplay">${formatTime(getRemainingSeconds())}</span></div>`
+        renderTopRightControls()
       )}
 
       <div class="mcq-layout" style="${getExamViewStyle()}">
@@ -345,10 +386,6 @@
 
             <div class="mcq-footer">
               <div class="question-progress">Resize the left pane, text, and image to match how you want to read the prompt.</div>
-              <div class="nav-actions">
-                <button class="btn btn-outline btn-sm" onclick="prevQuestion()" ${currentQIndex === 0 ? "disabled" : ""}>Previous</button>
-                <button class="btn btn-outline btn-sm" onclick="nextQuestion()" ${currentQIndex === qCount - 1 ? "disabled" : ""}>Next</button>
-              </div>
             </div>
           </div>
         </section>
@@ -363,7 +400,7 @@
       ${renderHeader(
         examData.title,
         `Free-Response Section | ${qCount} prompts`,
-        `<div class="timer-badge"><span id="timerDisplay">${formatTime(getRemainingSeconds())}</span></div>`
+        renderTopRightControls()
       )}
 
       <div class="frq-layout">
@@ -389,6 +426,69 @@
           <div class="frq-nav">
             <div>Read through the full prompt set before you submit.</div>
             <button class="btn btn-primary" onclick="submitExam()">Submit Section</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderInProgressReview() {
+    const total = examData.questions.length;
+    const answeredCount = getAnsweredCount();
+
+    return `
+      ${renderHeader(
+        examData.title,
+        `Review | Answered ${answeredCount} of ${total}`,
+        renderTopRightControls(`<button class="btn btn-sm" onclick="returnToCurrentQuestion()">Return to Question</button>`)
+      )}
+
+      <div class="in-progress-review">
+        <div class="in-progress-review-card">
+          <div class="review-panel-header">
+            <div>
+              <div class="review-panel-kicker">Section Review</div>
+              <h2>Question Completion</h2>
+            </div>
+            <div class="review-panel-count">${answeredCount} / ${total}</div>
+          </div>
+          <p class="review-panel-help">Select a question number to jump directly to that question.</p>
+          ${renderQuestionStatusGrid()}
+          <div class="completion-legend">
+            <span><i class="legend-dot answered"></i>Completed</span>
+            <span><i class="legend-dot unanswered"></i>Incomplete</span>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderSubmitConfirmModal() {
+    if (!submitConfirmOpen || examSubmitted || isPaused) return "";
+    const total = examData.questions.length;
+    const answeredCount = getAnsweredCount();
+    return `
+      <div class="submit-confirm-overlay">
+        <div class="submit-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="submitConfirmTitle">
+          <div class="submit-confirm-header">
+            <div>
+              <div class="review-panel-kicker">Submit Section</div>
+              <h2 id="submitConfirmTitle">是否确认提交？</h2>
+            </div>
+            <button class="btn btn-sm" type="button" onclick="closeSubmitConfirm()">Cancel</button>
+          </div>
+          <div class="submit-confirm-summary">
+            <strong>${answeredCount} / ${total}</strong>
+            <span>questions completed</span>
+          </div>
+          ${renderQuestionStatusGrid({ clickAction: "jumpFromSubmitConfirm" })}
+          <div class="completion-legend">
+            <span><i class="legend-dot answered"></i>Completed</span>
+            <span><i class="legend-dot unanswered"></i>Incomplete</span>
+          </div>
+          <div class="submit-confirm-actions">
+            <button class="btn" type="button" onclick="closeSubmitConfirm()">Cancel</button>
+            <button class="btn btn-primary" type="button" onclick="confirmSubmitExam()">Confirm Submit</button>
           </div>
         </div>
       </div>
@@ -434,6 +534,11 @@
     renderExamSession();
   };
 
+  window.backToResultSummary = function() {
+    reviewMode = false;
+    renderExamSession();
+  };
+
   window.selectReviewQuestion = function(index) {
     reviewSelectedIndex = index;
     renderExamSession();
@@ -451,7 +556,7 @@
       ${renderHeader(
         examData.title,
         isHistoryReview ? "Saved Attempt Review" : "Answer Review",
-        `<button class="btn btn-sm" onclick="reviewMode=false;renderExamSession();">Back to Summary</button>`
+        `<button class="btn btn-sm" onclick="backToResultSummary()">Back to Summary</button>`
       )}
 
       <div class="review-layout">
@@ -520,8 +625,44 @@
     renderExamSession();
   };
 
+  window.showInProgressReview = function() {
+    if (examSubmitted || isPaused) return;
+    inProgressReviewMode = true;
+    renderExamSession();
+  };
+
+  window.returnToCurrentQuestion = function() {
+    if (examSubmitted || isPaused) return;
+    inProgressReviewMode = false;
+    renderExamSession();
+  };
+
+  window.jumpToQuestion = function(index) {
+    if (examSubmitted || isPaused) return;
+    currentQIndex = Math.min(Math.max(Number(index) || 0, 0), examData.questions.length - 1);
+    inProgressReviewMode = false;
+    renderExamSession();
+  };
+
+  window.openSubmitConfirm = function() {
+    if (examSubmitted || isPaused) return;
+    submitConfirmOpen = true;
+    renderExamSession();
+  };
+
+  window.closeSubmitConfirm = function() {
+    submitConfirmOpen = false;
+    renderExamSession();
+  };
+
+  window.jumpFromSubmitConfirm = function(index) {
+    submitConfirmOpen = false;
+    window.jumpToQuestion(index);
+  };
+
   window.prevQuestion = function() {
     if (isPaused) return;
+    inProgressReviewMode = false;
     if (currentQIndex > 0) {
       currentQIndex -= 1;
       renderExamSession();
@@ -530,6 +671,7 @@
 
   window.nextQuestion = function() {
     if (isPaused) return;
+    inProgressReviewMode = false;
     if (currentQIndex < examData.questions.length - 1) {
       currentQIndex += 1;
       renderExamSession();
@@ -537,12 +679,18 @@
   };
 
   window.submitExam = async function() {
+    window.openSubmitConfirm();
+  };
+
+  window.confirmSubmitExam = async function() {
     if (examSubmitted) return;
     if (isPaused) return;
 
     if (timerInterval) clearInterval(timerInterval);
     examSubmitted = true;
     reviewMode = false;
+    inProgressReviewMode = false;
+    submitConfirmOpen = false;
 
     const historyRecord = {
       examId: localStorage.getItem("currentExamId"),
