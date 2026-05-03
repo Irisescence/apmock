@@ -69,6 +69,16 @@
     if (!profile) return;
     const examId = localStorage.getItem("currentExamId");
     isHistoryReview = localStorage.getItem("reviewMode") === "true";
+    const reviewUserId = localStorage.getItem("reviewUserId");
+
+    if (isHistoryReview && reviewUserId !== profile.id) {
+      localStorage.removeItem("reviewMode");
+      localStorage.removeItem("reviewUserId");
+      localStorage.removeItem("reviewAnswers");
+      localStorage.removeItem("reviewScore");
+      localStorage.removeItem("reviewTotal");
+      isHistoryReview = false;
+    }
 
     if (!examId) {
       alert("No exam was selected.");
@@ -126,6 +136,7 @@
     if (timerInterval) clearInterval(timerInterval);
     localStorage.removeItem("currentExamId");
     localStorage.removeItem("reviewMode");
+    localStorage.removeItem("reviewUserId");
     localStorage.removeItem("reviewAnswers");
     localStorage.removeItem("reviewScore");
     localStorage.removeItem("reviewTotal");

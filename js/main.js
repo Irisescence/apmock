@@ -216,6 +216,7 @@ window.viewHistory = async function(examId) {
     // 将最近的记录保存到 localStorage，然后跳转到考试页面（以回顾模式）
     localStorage.setItem('currentExamId', examId);
     localStorage.setItem('reviewMode', 'true');
+    localStorage.setItem('reviewUserId', examDB.userId || '');
     localStorage.setItem('reviewAnswers', JSON.stringify(userHistory[0].answers));
     localStorage.setItem('reviewScore', userHistory[0].score);
     localStorage.setItem('reviewTotal', userHistory[0].total);
@@ -305,6 +306,11 @@ window.startExam = function(examId) {
     return;
   }
   
+  localStorage.removeItem('reviewMode');
+  localStorage.removeItem('reviewUserId');
+  localStorage.removeItem('reviewAnswers');
+  localStorage.removeItem('reviewScore');
+  localStorage.removeItem('reviewTotal');
   localStorage.setItem('currentExamId', examId);
   window.location.href = 'exam.html';
 };
