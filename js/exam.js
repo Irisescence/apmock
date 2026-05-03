@@ -602,7 +602,7 @@
                 return `
                   <div class="review-option ${optionClass.trim()}">
                     <span class="option-prefix">${letter}</span>
-                    <span>${escapeHtml(getOptionText(opt))}</span>${getOptionImages(opt).map((url) => `<img class="option-inline-image" src="${url}" alt="Option image">`).join("")}
+                    <span class="review-option-text">${escapeHtml(getOptionText(opt))}</span>${getOptionImages(opt).map((url) => `<img class="option-inline-image" src="${url}" alt="Option image">`).join("")}
                     ${label}
                   </div>
                 `;

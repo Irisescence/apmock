@@ -134,6 +134,209 @@
     return answerMap;
   }
 
+  function cleanText(value) {
+    return String(value || "").replace(/\s+/g, " ").trim();
+  }
+
+  function optionLabelFromText(value) {
+    const match = cleanText(value).match(/^\(?([A-E])\)?(?:[\.)\-\s:]+(.+))?$/i);
+    return match ? { label: match[1].toUpperCase(), text: cleanText(match[2] || "") } : null;
+  }
+
+  function normalizeOptionTableRows(rows) {
+    if (!Array.isArray(rows) || rows.length < 2) return null;
+    const normalizedRows = rows
+      .map((row) => (Array.isArray(row) ? row : []).map(cleanText))
+      .filter((row) => row.some(Boolean));
+    if (normalizedRows.length < 2) return null;
+
+    let headerIndex = -1;
+    for (let i = 0; i < normalizedRows.length - 1; i++) {
+      const row = normalizedRows[i];
+      const nextRow = normalizedRows[i + 1];
+      if (row.length >= 2 && row.filter(Boolean).length >= 2 && optionLabelFromText(nextRow[0])) {
+        headerIndex = i;
+        break;
+      }
+    }
+    if (headerIndex < 0) return null;
+
+    const nextOption = optionLabelFromText(normalizedRows[headerIndex + 1][0]);
+    const rawHeaders = normalizedRows[headerIndex];
+    const headers = (nextOption && !nextOption.text && rawHeaders.length > 1 ? rawHeaders.slice(1) : rawHeaders)
+      .map((header, index) => header || `Column ${index + 1}`);
+    const options = [];
+    for (const row of normalizedRows.slice(headerIndex + 1)) {
+      const firstCell = optionLabelFromText(row[0]);
+      if (!firstCell) continue;
+      const values = (firstCell.text ? [firstCell.text, ...row.slice(1)] : row.slice(1)).slice(0, headers.length);
+      const text = values
+        .map((value, index) => value ? `${headers[index]}: ${value}` : "")
+        .filter(Boolean)
+        .join("\n");
+      if (text) options.push({ label: firstCell.label, text, image_urls: [] });
+    }
+
+    return options.length >= 2 ? { headers, options } : null;
+  }
+
+  function optionContentScore(parsedOption, tableOption) {
+    const parsedText = cleanText(parsedOption?.text).toLowerCase();
+    if (!parsedText) return 0;
+    const tableValues = tableOption.text
+      .split("\n")
+      .map((line) => cleanText(line.replace(/^[^:]+:\s*/, "")).toLowerCase())
+      .filter(Boolean);
+    return tableValues.reduce((score, value) => {
+      return score + (value && (parsedText.includes(value) || value.includes(parsedText)) ? 1 : 0);
+    }, 0);
+  }
+
+  function tableSetMatchesQuestion(tableSet, question) {
+    const parsedOptions = Array.isArray(question.options) ? question.options : [];
+    if (parsedOptions.length < 2) return false;
+    let score = 0;
+    tableSet.options.forEach((tableOption, index) => {
+      const parsedOption = parsedOptions.find((option) => String(option.label || "").toUpperCase() === tableOption.label) || parsedOptions[index];
+      score += optionContentScore(parsedOption, tableOption);
+    });
+    return score >= Math.min(2, tableSet.options.length);
+  }
+
+  function normalizeTableChoiceOptions(parsedExam, examDoc) {
+    const tableSets = (examDoc.blocks || [])
+      .filter((block) => block.type === "table")
+      .map((block) => normalizeOptionTableRows(block.rows))
+      .filter(Boolean);
+    if (!tableSets.length) return parsedExam;
+
+    const usedTableIndexes = new Set();
+    const questions = (parsedExam.questions || []).map((question) => {
+      let selectedIndex = -1;
+      for (let i = 0; i < tableSets.length; i++) {
+        if (usedTableIndexes.has(i)) continue;
+        if (tableSetMatchesQuestion(tableSets[i], question)) {
+          selectedIndex = i;
+          break;
+        }
+      }
+      if (selectedIndex < 0) return question;
+
+      const tableSet = tableSets[selectedIndex];
+      usedTableIndexes.add(selectedIndex);
+      const existingOptions = Array.isArray(question.options) ? question.options : [];
+      const options = tableSet.options.map((tableOption, index) => {
+        const existing = existingOptions.find((option) => String(option.label || "").toUpperCase() === tableOption.label) || existingOptions[index] || {};
+        return { ...existing, label: tableOption.label, text: tableOption.text };
+      });
+      const warnings = Array.isArray(question.warnings) ? [...question.warnings] : [];
+      if (!warnings.includes("table_options_normalized")) warnings.push("table_options_normalized");
+      return { ...question, options, warnings };
+    });
+
+    return { ...parsedExam, questions };
+  }
+
+  function parseQuestionStart(text) {
+    const match = cleanText(text).match(/^(?:question\s*)?(\d{1,3})[\.)\:\-]?\s+(.+)$/i);
+    return match ? { number: Number(match[1]), text: cleanText(match[2]) } : null;
+  }
+
+  function isOptionStartText(text) {
+    return /^\(?[A-E]\)?[\.)\-\:]\s+\S/i.test(cleanText(text));
+  }
+
+  function appendUnique(target, values) {
+    values.forEach((value) => {
+      if (value && !target.includes(value)) target.push(value);
+    });
+  }
+
+  function buildStemHintsFromBlocks(examDoc) {
+    const hints = [];
+    let current = null;
+    let nextImplicitNumber = 1;
+
+    const startQuestion = (number, firstText = "") => {
+      current = { number, textParts: [], image_urls: [], sealed: false };
+      hints.push(current);
+      if (firstText) current.textParts.push(firstText);
+      nextImplicitNumber = Math.max(nextImplicitNumber, number + 1);
+    };
+
+    (examDoc.blocks || []).forEach((block) => {
+      if (block.type === "paragraph") {
+        const text = cleanText(block.text);
+        const explicitStart = parseQuestionStart(text);
+        const implicitStart = !explicitStart && block.numId === "1" && text && !isOptionStartText(text);
+
+        if (explicitStart) {
+          startQuestion(explicitStart.number, explicitStart.text);
+          appendUnique(current.image_urls, block.image_urls || []);
+          return;
+        }
+
+        if (implicitStart) {
+          startQuestion(nextImplicitNumber, text);
+          appendUnique(current.image_urls, block.image_urls || []);
+          return;
+        }
+
+        if (!current) return;
+        if (isOptionStartText(text)) {
+          current.sealed = true;
+          return;
+        }
+        if (!current.sealed) {
+          if (text) current.textParts.push(text);
+          appendUnique(current.image_urls, block.image_urls || []);
+        }
+        return;
+      }
+
+      if (block.type === "table" && current && !current.sealed) {
+        if (normalizeOptionTableRows(block.rows)) {
+          current.sealed = true;
+          return;
+        }
+        if (block.markdown) current.textParts.push(block.markdown);
+      }
+    });
+
+    return hints;
+  }
+
+  function shouldReplaceStem(aiText, hintText) {
+    const ai = cleanText(aiText);
+    const hint = cleanText(hintText);
+    if (hint.length <= ai.length + 12) return false;
+    if (!ai) return true;
+    return hint.toLowerCase().includes(ai.toLowerCase()) || ai.toLowerCase().includes(hint.slice(0, Math.min(80, hint.length)).toLowerCase());
+  }
+
+  function supplementQuestionStems(parsedExam, examDoc) {
+    const hintsByNumber = new Map(buildStemHintsFromBlocks(examDoc).map((hint) => [hint.number, hint]));
+    const questions = (parsedExam.questions || []).map((question, index) => {
+      const number = Number(question.question_number || index + 1);
+      const hint = hintsByNumber.get(number);
+      if (!hint) return question;
+
+      const hintText = hint.textParts.join("\n").trim();
+      const questionImages = Array.isArray(question.question_images) ? [...question.question_images] : [];
+      appendUnique(questionImages, hint.image_urls);
+
+      if (!shouldReplaceStem(question.question_text, hintText)) {
+        return { ...question, question_images: questionImages };
+      }
+
+      const warnings = Array.isArray(question.warnings) ? [...question.warnings] : [];
+      if (!warnings.includes("stem_text_supplemented")) warnings.push("stem_text_supplemented");
+      return { ...question, question_text: hintText, question_images: questionImages, warnings };
+    });
+
+    return { ...parsedExam, questions };
+  }
+
   async function callParser(payload) {
     const response = await fetch("/api/parse-docx", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     const data = await response.json().catch(() => ({}));
@@ -233,7 +436,7 @@
       const examDoc = await parseDocxPackage(examFile);
       const answerDoc = await readAnswerFile(answerFile);
       showStatus("正在调用 AI 识别题目和选项...");
-      const parsed = await callParser({ exam_doc: examDoc });
+      const parsed = normalizeTableChoiceOptions(supplementQuestionStems(await callParser({ exam_doc: examDoc }), examDoc), examDoc);
       const merged = mergeAnswers(parsed, answerDoc.parsed);
       if (!merged.exam_title) merged.exam_title = examFile.name.replace(/\.docx$/i, "");
       if (!merged.subject) merged.subject = "AP MacroEconomics";

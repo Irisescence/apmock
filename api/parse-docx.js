@@ -87,6 +87,12 @@ export default async function handler(req, res) {
               "You must not infer, guess, or output correct answers.",
               "Only identify question text, question images, tables, options, option images, and explanations if explicitly present.",
               "Preserve table meaning as markdown-like structured text inside question_text or option text.",
+              "Question stems may continue after an image or table and before the answer choices.",
+              "Include all stem text before the first answer choice, even when it appears below an image/table.",
+              "Do not stop question_text at an image, table, page break, or blank visual block.",
+              "If answer choices are arranged as table rows with column headers, preserve the headers inside each option text.",
+              "For table answer choices, format each option text as one line per column: Header 1: value\\nHeader 2: value.",
+              "Do not flatten table answer choices into one unlabeled sentence.",
               "If Word numbering shows numId=1, treat those blocks as likely question starts. Other numbered blocks following a question are likely options.",
               "If content is incomplete, add warnings such as missing_question_text, missing_or_too_few_options, table_may_need_review, image_may_need_review.",
               "Return strict JSON only. Do not include correct_answer."

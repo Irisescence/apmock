@@ -431,6 +431,11 @@ body {
 .option-text {
   font-size: 18px;
   line-height: 1.6;
+  white-space: pre-line;
+}
+
+.review-option-text {
+  white-space: pre-line;
 }
 
 .option-inline-image {
