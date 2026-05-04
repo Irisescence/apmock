@@ -124,19 +124,20 @@ async function renderExamCards() {
         const scoreColor = percent >= 80 ? '#4caf50' : percent >= 60 ? '#ff9800' : '#f44336';
         
         lastScoreHtml = `
-          <div style="margin-top:12px; padding:12px; background:#f8fafd; border-radius:12px;">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-              <span style="font-size:0.85rem; color:#5b6778;">📅 上次: ${dateStr}</span>
-              <span style="font-weight:700; color:${scoreColor}; font-size:1.1rem;">
+          <div class="exam-history-slot has-history">
+            <div class="exam-history-row">
+              <span>Last attempt · ${dateStr}</span>
+              <strong style="color:${scoreColor};">
                 ${latestRecord.score}/${latestRecord.total} (${percent}%)
-              </span>
+              </strong>
             </div>
-            <button class="btn btn-sm btn-outline" onclick="viewHistory('${exam.id}')" 
-                    style="width:100%; margin-top:8px;">
-              📊 查看详情
+            <button class="history-btn" onclick="viewHistory('${exam.id}')">
+              View Details
             </button>
           </div>
         `;
+      } else {
+        lastScoreHtml = '<div class="exam-history-slot empty">No previous attempt</div>';
       }
       
       html += `
@@ -145,15 +146,20 @@ async function renderExamCards() {
             <button class="icon-btn" onclick="editExam('${exam.id}')" title="编辑">✎</button>
             <button class="icon-btn" onclick="deleteExam('${exam.id}')" title="删除">🗑</button>
           </div>
-          <span class="exam-badge">${exam.subject} <span class="exam-type-badge">${typeLabel}</span></span>
-          <div class="exam-title">${exam.title}</div>
-          <div class="exam-desc">${exam.description || ''}</div>
+          <div class="exam-badge-row">
+            <span class="exam-badge">${exam.subject}</span>
+            <span class="exam-type-badge">${typeLabel}</span>
+          </div>
+          <div class="exam-copy-block">
+            <div class="exam-title">${exam.title}</div>
+            <div class="exam-desc">${exam.description || ''}</div>
+          </div>
           <div class="exam-meta">
-            <span>⏱️ ${exam.timeLimit} 分钟</span>
-            <span>📋 ${exam.questions?.length || 0} 题</span>
+            <span>${exam.timeLimit} min</span>
+            <span>${exam.questions?.length || 0} questions</span>
           </div>
           ${lastScoreHtml}
-          <button class="start-btn" onclick="startExam('${exam.id}')">▶ 开始考试</button>
+          <button class="start-btn" onclick="startExam('${exam.id}')">Start Exam</button>
         </div>
       `;
     });
@@ -176,14 +182,20 @@ async function renderExamCards() {
             <button class="icon-btn" onclick="editExam('${exam.id}')" title="编辑">✎</button>
             <button class="icon-btn" onclick="deleteExam('${exam.id}')" title="删除">🗑</button>
           </div>
-          <span class="exam-badge">${exam.subject} <span class="exam-type-badge">${typeLabel}</span></span>
-          <div class="exam-title">${exam.title}</div>
-          <div class="exam-desc">${exam.description || ''}</div>
-          <div class="exam-meta">
-            <span>⏱️ ${exam.timeLimit} 分钟</span>
-            <span>📋 ${exam.questions?.length || 0} 题</span>
+          <div class="exam-badge-row">
+            <span class="exam-badge">${exam.subject}</span>
+            <span class="exam-type-badge">${typeLabel}</span>
           </div>
-          <button class="start-btn" onclick="startExam('${exam.id}')">▶ 开始考试</button>
+          <div class="exam-copy-block">
+            <div class="exam-title">${exam.title}</div>
+            <div class="exam-desc">${exam.description || ''}</div>
+          </div>
+          <div class="exam-meta">
+            <span>${exam.timeLimit} min</span>
+            <span>${exam.questions?.length || 0} questions</span>
+          </div>
+          <div class="exam-history-slot empty">No previous attempt</div>
+          <button class="start-btn" onclick="startExam('${exam.id}')">Start Exam</button>
         </div>
       `;
     });
