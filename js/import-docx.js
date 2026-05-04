@@ -338,10 +338,42 @@
   }
 
   async function callParser(payload) {
-    const response = await fetch("/api/parse-docx", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    let response;
+    try {
+      response = await fetch("/api/parse-docx", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    } catch (error) {
+      throw new Error("无法连接 AI 解析接口。可能是文件过大、网络中断或 Vercel 函数超时。");
+    }
     const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(data.error || "DOCX parse failed.");
+    if (!response.ok) throw new Error(data.error || `DOCX parse failed (${response.status}).`);
     return data;
+  }
+
+  function compactExamDocForParser(examDoc) {
+    return {
+      file_name: examDoc.file_name,
+      blocks: (examDoc.blocks || []).slice(0, 900).map((block) => {
+        if (block.type === "paragraph") {
+          return {
+            index: block.index,
+            type: block.type,
+            text: block.text || "",
+            numId: block.numId || "",
+            level: block.level || "",
+            image_urls: Array.isArray(block.image_urls) ? block.image_urls : []
+          };
+        }
+        if (block.type === "table") {
+          return {
+            index: block.index,
+            type: block.type,
+            markdown: block.markdown || ""
+          };
+        }
+        return { index: block.index, type: block.type, text: block.text || "" };
+      }),
+      raw_text: String(examDoc.raw_text || "").slice(0, 12000)
+    };
   }
 
   function mergeAnswers(parsedExam, answerMap) {
@@ -436,7 +468,8 @@
       const examDoc = await parseDocxPackage(examFile);
       const answerDoc = await readAnswerFile(answerFile);
       showStatus("正在调用 AI 识别题目和选项...");
-      const parsed = normalizeTableChoiceOptions(supplementQuestionStems(await callParser({ exam_doc: examDoc }), examDoc), examDoc);
+      const parserPayload = compactExamDocForParser(examDoc);
+      const parsed = normalizeTableChoiceOptions(supplementQuestionStems(await callParser({ exam_doc: parserPayload }), examDoc), examDoc);
       const merged = mergeAnswers(parsed, answerDoc.parsed);
       if (!merged.exam_title) merged.exam_title = examFile.name.replace(/\.docx$/i, "");
       if (!merged.subject) merged.subject = "AP MacroEconomics";
