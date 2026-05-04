@@ -3,6 +3,7 @@ class ExamDatabase {
     this.db = null;
     this.userId = null;
     this.client = null;
+    this.assetBucket = 'exam-assets';
   }
 
   getClient() {
@@ -228,11 +229,78 @@ class ExamDatabase {
     const client = this.getClient();
     if (!this.userId) await this.open();
 
+    const { data: questionRows, error: questionFetchError } = await client
+      .from('questions')
+      .select('image_url, image_urls, options')
+      .eq('exam_id', id);
+    if (questionFetchError) throw questionFetchError;
+
+    const storagePaths = this.collectStoragePathsFromQuestions(questionRows || []);
+
+    const { error: attemptError } = await client
+      .from('attempts')
+      .delete()
+      .eq('exam_id', id);
+    if (attemptError) throw attemptError;
+
+    const { error: questionError } = await client
+      .from('questions')
+      .delete()
+      .eq('exam_id', id);
+    if (questionError) throw questionError;
+
     const { error } = await client
       .from('exams')
       .delete()
       .eq('id', id);
     if (error) throw error;
+
+    await this.deleteStorageAssets(storagePaths);
+  }
+
+  collectStoragePathsFromQuestions(questionRows) {
+    const urls = new Set();
+    const addUrl = (url) => {
+      if (typeof url === 'string' && url) urls.add(url);
+    };
+
+    questionRows.forEach((row) => {
+      addUrl(row.image_url);
+      if (Array.isArray(row.image_urls)) row.image_urls.forEach(addUrl);
+      if (Array.isArray(row.options)) {
+        row.options.forEach((option) => {
+          if (Array.isArray(option?.image_urls)) option.image_urls.forEach(addUrl);
+        });
+      }
+    });
+
+    return Array.from(urls)
+      .map((url) => this.storagePathFromPublicUrl(url))
+      .filter(Boolean);
+  }
+
+  storagePathFromPublicUrl(url) {
+    try {
+      const parsed = new URL(url);
+      const marker = `/storage/v1/object/public/${this.assetBucket}/`;
+      const markerIndex = parsed.pathname.indexOf(marker);
+      if (markerIndex < 0) return null;
+      return decodeURIComponent(parsed.pathname.slice(markerIndex + marker.length));
+    } catch (error) {
+      return null;
+    }
+  }
+
+  async deleteStorageAssets(paths) {
+    if (!paths.length) return;
+    const client = this.getClient();
+    const uniquePaths = Array.from(new Set(paths));
+    const { error } = await client.storage
+      .from(this.assetBucket)
+      .remove(uniquePaths);
+    if (error) {
+      console.warn('Failed to delete exam storage assets:', error);
+    }
   }
 
   mapAttemptRow(row) {
