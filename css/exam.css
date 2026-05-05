@@ -733,9 +733,13 @@ body {
   display: grid;
   grid-template-columns: 300px 1fr;
   min-height: calc(100vh - 73px);
+  align-items: start;
 }
 
 .review-sidebar {
+  position: sticky;
+  top: 73px;
+  height: calc(100vh - 73px);
   padding: 24px 18px;
   background: #f4f7fb;
   border-right: 1px solid var(--ap-border);
@@ -903,6 +907,8 @@ body {
   }
 
   .review-sidebar {
+    position: static;
+    height: auto;
     border-right: 0;
     border-bottom: 1px solid var(--ap-border);
   }

@@ -13,6 +13,7 @@
   let inProgressReviewMode = false;
   let reviewSelectedIndex = 0;
   let isHistoryReview = false;
+  let teacherReviewMode = false;
   let submitConfirmOpen = false;
 
   let leftPaneWidth = 52;
@@ -99,10 +100,14 @@
     if (!profile) return;
     const examId = localStorage.getItem("currentExamId");
     isHistoryReview = localStorage.getItem("reviewMode") === "true";
+    teacherReviewMode = isHistoryReview
+      && localStorage.getItem("teacherReviewMode") === "true"
+      && window.apAuth.isTeacherLike(profile.role);
     const reviewUserId = localStorage.getItem("reviewUserId");
 
-    if (isHistoryReview && reviewUserId !== profile.id) {
+    if (isHistoryReview && !teacherReviewMode && reviewUserId !== profile.id) {
       localStorage.removeItem("reviewMode");
+      localStorage.removeItem("teacherReviewMode");
       localStorage.removeItem("reviewUserId");
       localStorage.removeItem("reviewAnswers");
       localStorage.removeItem("reviewScore");
@@ -135,10 +140,14 @@
       }
 
       if (isHistoryReview) {
-        try {
-          userAnswers = JSON.parse(localStorage.getItem("reviewAnswers") || "[]");
-        } catch (error) {
+        if (teacherReviewMode) {
           userAnswers = [];
+        } else {
+          try {
+            userAnswers = JSON.parse(localStorage.getItem("reviewAnswers") || "[]");
+          } catch (error) {
+            userAnswers = [];
+          }
         }
         if (!Array.isArray(userAnswers) || userAnswers.length !== examData.questions.length) {
           userAnswers = new Array(examData.questions.length).fill(-1);
@@ -166,6 +175,7 @@
     if (timerInterval) clearInterval(timerInterval);
     localStorage.removeItem("currentExamId");
     localStorage.removeItem("reviewMode");
+    localStorage.removeItem("teacherReviewMode");
     localStorage.removeItem("reviewUserId");
     localStorage.removeItem("reviewAnswers");
     localStorage.removeItem("reviewScore");
@@ -251,16 +261,18 @@
   }
 
   function renderHeader(centerTitle, centerStatus, rightContent) {
-    const pauseButton = !examSubmitted && !isHistoryReview
-      ? `<button class="btn btn-sm" onclick="${isPaused ? "resumeExam()" : "pauseExam()"}">${isPaused ? "Resume" : "Pause"}</button>`
-      : "";
-    const submitDisabled = isPaused ? "disabled" : "";
+    const isReadOnlyReview = examSubmitted && reviewMode;
+    const leftContent = isReadOnlyReview
+      ? `<button class="btn btn-sm" onclick="goBackHome()">Return to home</button>`
+      : `
+          <button class="btn btn-sm" onclick="confirmExit()">Exit</button>
+          ${!isHistoryReview ? `<button class="btn btn-sm" onclick="${isPaused ? "resumeExam()" : "pauseExam()"}">${isPaused ? "Resume" : "Pause"}</button>` : ""}
+          <button class="btn btn-primary btn-sm" onclick="submitExam()" ${isPaused ? "disabled" : ""}>Submit Section</button>
+        `;
     return `
       <div class="exam-top-bar">
         <div class="toolbar-group">
-          <button class="btn btn-sm" onclick="confirmExit()">Exit</button>
-          ${pauseButton}
-          <button class="btn btn-primary btn-sm" onclick="submitExam()" ${submitDisabled}>Submit Section</button>
+          ${leftContent}
         </div>
         <div class="exam-title-display">
           <div class="exam-kicker">AP Practice Exam</div>
@@ -551,25 +563,41 @@
     const q = examData.questions[reviewSelectedIndex];
     const studentAnswer = userAnswers[reviewSelectedIndex];
     const isCorrect = studentAnswer === q.correct;
+    const reviewNav = `
+      <div class="top-question-nav">
+        <button class="btn btn-sm" onclick="selectReviewQuestion(${Math.max(0, reviewSelectedIndex - 1)})" ${reviewSelectedIndex === 0 ? "disabled" : ""}>Previous</button>
+        <button class="btn btn-sm" onclick="selectReviewQuestion(${Math.min(total - 1, reviewSelectedIndex + 1)})" ${reviewSelectedIndex === total - 1 ? "disabled" : ""}>Next</button>
+      </div>
+    `;
+    const sidebarSummary = teacherReviewMode ? "" : `
+      <div class="review-summary" style="flex-direction:column; gap:8px;">
+        <div><strong>Score:</strong> ${score}/${total}</div>
+        <div style="color:#2e7d32;">Correct: ${score}</div>
+        <div style="color:#c62828;">Incorrect: ${wrongCount}</div>
+      </div>
+    `;
+    const questionStatusClass = (item, idx) => {
+      if (teacherReviewMode) return "neutral-answer";
+      return userAnswers[idx] === item.correct ? "correct-answer" : "wrong-answer";
+    };
+    const questionHeading = teacherReviewMode
+      ? `<strong>Question ${reviewSelectedIndex + 1}</strong>`
+      : `<strong>Question ${reviewSelectedIndex + 1}</strong><span class="review-status ${isCorrect ? "correct" : "wrong"}">${isCorrect ? "Correct" : "Incorrect"}</span>`;
 
     return `
       ${renderHeader(
         examData.title,
-        isHistoryReview ? "Saved Attempt Review" : "Answer Review",
-        `<button class="btn btn-sm" onclick="backToResultSummary()">Back to Summary</button>`
+        teacherReviewMode ? "Teacher Review" : (isHistoryReview ? "Saved Attempt Review" : "Answer Review"),
+        reviewNav
       )}
 
       <div class="review-layout">
         <div class="review-sidebar">
           <h3>Question List</h3>
-          <div class="review-summary" style="flex-direction:column; gap:8px;">
-            <div><strong>Score:</strong> ${score}/${total}</div>
-            <div style="color:#2e7d32;">Correct: ${score}</div>
-            <div style="color:#c62828;">Incorrect: ${wrongCount}</div>
-          </div>
+          ${sidebarSummary}
           <div class="question-grid">
             ${examData.questions.map((item, idx) => {
-              const answerClass = userAnswers[idx] === item.correct ? "correct-answer" : "wrong-answer";
+              const answerClass = questionStatusClass(item, idx);
               const activeClass = reviewSelectedIndex === idx ? "active" : "";
               return `<button class="question-number-btn ${answerClass} ${activeClass}" onclick="selectReviewQuestion(${idx})">${idx + 1}</button>`;
             }).join("")}
@@ -579,8 +607,7 @@
         <div class="review-content">
           <div class="review-question-card">
             <div style="display:flex; align-items:center; gap:16px; margin-bottom:24px; font-family:'Segoe UI',Tahoma,sans-serif;">
-              <strong>Question ${reviewSelectedIndex + 1}</strong>
-              <span class="review-status ${isCorrect ? "correct" : "wrong"}">${isCorrect ? "Correct" : "Incorrect"}</span>
+              ${questionHeading}
             </div>
             <div style="font-size:28px; line-height:1.6; margin-bottom:24px;">${escapeHtml(q.text)}</div>
             ${renderQuestionImages(q)}
@@ -595,7 +622,9 @@
                 if (isStudentSelected) optionClass += " student-selected";
 
                 let label = "";
-                if (isStudentSelected && isCorrectAnswer) label = '<span class="review-answer-label">Your answer</span>';
+                if (teacherReviewMode && isCorrectAnswer) label = '<span class="review-answer-label">Correct answer</span>';
+                else if (teacherReviewMode) label = "";
+                else if (isStudentSelected && isCorrectAnswer) label = '<span class="review-answer-label">Your answer</span>';
                 else if (isStudentSelected) label = '<span class="review-answer-label">Your answer</span>';
                 else if (isCorrectAnswer) label = '<span class="review-answer-label">Correct answer</span>';
 
@@ -609,10 +638,6 @@
               }).join("")}
             </div>
             ${q.explanation ? `<div class="review-explanation"><strong>Explanation</strong><p>${escapeHtml(q.explanation)}</p></div>` : ""}
-            <div style="display:flex; gap:12px; margin-top:24px;">
-              <button class="btn btn-outline" onclick="selectReviewQuestion(${Math.max(0, reviewSelectedIndex - 1)})" ${reviewSelectedIndex === 0 ? "disabled" : ""}>Previous</button>
-              <button class="btn btn-outline" onclick="selectReviewQuestion(${Math.min(total - 1, reviewSelectedIndex + 1)})" ${reviewSelectedIndex === total - 1 ? "disabled" : ""}>Next</button>
-            </div>
           </div>
         </div>
       </div>

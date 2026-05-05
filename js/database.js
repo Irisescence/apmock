@@ -73,6 +73,7 @@ class ExamDatabase {
       year: inferredYear,
       timeLimit: row.time_limit,
       examType: row.exam_type || 'mcq',
+      accessLevel: row.access_level || (row.is_public ? 'public' : 'private'),
       isPublic: !!row.is_public,
       userId: row.created_by,
       createdBy: row.created_by,
@@ -223,13 +224,18 @@ class ExamDatabase {
       throw new Error('Please add at least one question.');
     }
 
+    const accessLevel = ['public', 'teacher', 'private'].includes(examData.accessLevel)
+      ? examData.accessLevel
+      : (examData.isPublic ? 'public' : 'private');
+
     const examPayload = {
       title: examData.title,
       description: examData.description,
       subject: normalizedSubject,
       time_limit: Number(examData.timeLimit) || 45,
       exam_type: 'mcq',
-      is_public: !!examData.isPublic,
+      access_level: accessLevel,
+      is_public: accessLevel === 'public',
       created_by: this.userId
     };
 

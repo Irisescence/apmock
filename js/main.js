@@ -73,7 +73,13 @@
   }
 
   function getBaseVisibleExams() {
-    return canEditExams ? EXAMS : EXAMS.filter(exam => exam.isPublic === true);
+    if (canEditExams) {
+      return EXAMS.filter((exam) => {
+        const accessLevel = exam.accessLevel || (exam.isPublic ? 'public' : 'private');
+        return accessLevel !== 'private' || exam.createdBy === examDB.userId || exam.userId === examDB.userId;
+      });
+    }
+    return EXAMS.filter(exam => (exam.accessLevel || (exam.isPublic ? 'public' : 'private')) === 'public');
   }
 
   function getExamType(exam) {
@@ -334,6 +340,18 @@ window.viewHistory = async function(examId) {
       alert('试卷不存在');
       return;
     }
+
+    if (canEditExams) {
+      localStorage.setItem('currentExamId', examId);
+      localStorage.setItem('reviewMode', 'true');
+      localStorage.setItem('teacherReviewMode', 'true');
+      localStorage.removeItem('reviewUserId');
+      localStorage.removeItem('reviewAnswers');
+      localStorage.removeItem('reviewScore');
+      localStorage.removeItem('reviewTotal');
+      window.location.href = 'exam.html';
+      return;
+    }
     
     // 获取该试卷最近一次记录
     const history = await examDB.getExamHistory(examId);
@@ -348,6 +366,7 @@ window.viewHistory = async function(examId) {
     // 将最近的记录保存到 localStorage，然后跳转到考试页面（以回顾模式）
     localStorage.setItem('currentExamId', examId);
     localStorage.setItem('reviewMode', 'true');
+    localStorage.removeItem('teacherReviewMode');
     localStorage.setItem('reviewUserId', examDB.userId || '');
     localStorage.setItem('reviewAnswers', JSON.stringify(userHistory[0].answers));
     localStorage.setItem('reviewScore', userHistory[0].score);
@@ -439,6 +458,7 @@ window.startExam = function(examId) {
   }
   
   localStorage.removeItem('reviewMode');
+  localStorage.removeItem('teacherReviewMode');
   localStorage.removeItem('reviewUserId');
   localStorage.removeItem('reviewAnswers');
   localStorage.removeItem('reviewScore');
@@ -458,7 +478,7 @@ window.startExam = function(examId) {
     document.getElementById('examDesc').value = exam?.description || '';
     document.getElementById('examTime').value = exam?.timeLimit || 45;
     document.getElementById('examType').value = 'mcq';
-    document.getElementById('examVisibility').value = exam?.isPublic ? 'public' : 'private';
+    document.getElementById('examVisibility').value = exam?.accessLevel || (exam?.isPublic ? 'public' : 'private');
     
     renderQuestionsEditor(exam?.questions || [], 'mcq');
     editorModal.classList.remove('hidden');
@@ -808,7 +828,8 @@ examForm.addEventListener('submit', async (e) => {
   const description = document.getElementById('examDesc').value.trim();
   const timeLimit = parseInt(document.getElementById('examTime').value);
   const examType = 'mcq';
-  const isPublic = document.getElementById('examVisibility').value === 'public';
+  const accessLevel = document.getElementById('examVisibility').value || 'private';
+  const isPublic = accessLevel === 'public';
   const questions = getCurrentQuestionsFromForm();
   
   if (!subject || !title || !description || questions.length === 0) {
@@ -824,6 +845,7 @@ examForm.addEventListener('submit', async (e) => {
     description,
     timeLimit,
     examType,
+    accessLevel,
     isPublic,
     questions
   };
@@ -897,7 +919,8 @@ examForm.addEventListener('submit', async (e) => {
     const description = document.getElementById('examDesc').value.trim();
     const timeLimit = parseInt(document.getElementById('examTime').value);
     const examType = 'mcq';
-    const isPublic = document.getElementById('examVisibility').value === 'public';
+    const accessLevel = document.getElementById('examVisibility').value || 'private';
+    const isPublic = accessLevel === 'public';
     const questions = getCurrentQuestionsFromForm();
     
     if (!subject || !title || !description || questions.length === 0) {
@@ -912,6 +935,7 @@ examForm.addEventListener('submit', async (e) => {
       description,
       timeLimit,
       examType,
+      accessLevel,
       isPublic,
       questions
     };
