@@ -154,7 +154,7 @@ body {
 .exam-card {
   background: white;
   border-radius: 22px;
-  padding: 24px 28px 12px;
+  padding: 24px 28px 16px;
   box-shadow: 0 14px 30px -10px rgba(18, 35, 60, 0.12);
   border: 1px solid #e2e8f1;
   transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;

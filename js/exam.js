@@ -29,8 +29,30 @@
       .replace(/'/g, "&#39;");
   }
 
+  function formatOptionText(text) {
+    const headers = [
+      "Price Level",
+      "Effect on the Budget",
+      "Real GDP",
+      "Real Output",
+      "Unemployment Rate",
+      "Inflation Rate",
+      "Nominal Interest Rate",
+      "Real Interest Rate"
+    ];
+    return headers.reduce((value, header) => {
+      const pattern = new RegExp(`([^\\n])\\s*(${header}:)`, "g");
+      return value.replace(pattern, (match, before, label, offset) => {
+        const prefix = value.slice(Math.max(0, offset - 24), offset + before.length);
+        if (new RegExp(`${header}:$`).test(prefix.trim())) return match;
+        return `${before}\n${label}`;
+      });
+    }, String(text || ""));
+  }
+
   function getOptionText(option) {
-    return typeof option === "string" ? option : (option?.text || "");
+    const text = typeof option === "string" ? option : (option?.text || "");
+    return formatOptionText(text);
   }
 
   function getOptionImages(option) {
@@ -263,7 +285,7 @@
   function renderHeader(centerTitle, centerStatus, rightContent) {
     const isReadOnlyReview = examSubmitted && reviewMode;
     const leftContent = isReadOnlyReview
-      ? `<button class="btn btn-sm" onclick="goBackHome()">Return to home</button>`
+      ? `<button class="btn btn-sm" onclick="goBackHome()">Return</button>`
       : `
           <button class="btn btn-sm" onclick="confirmExit()">Exit</button>
           ${!isHistoryReview ? `<button class="btn btn-sm" onclick="${isPaused ? "resumeExam()" : "pauseExam()"}">${isPaused ? "Resume" : "Pause"}</button>` : ""}
