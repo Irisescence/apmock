@@ -30,17 +30,35 @@
     <div class="exam-search-wrap">
       <input type="search" id="examSearchInput" placeholder="搜索试卷标题">
     </div>
-    <select id="examTypeFilter" aria-label="试卷类型">
-      <option value="all">全部类型</option>
-      <option value="mcq">MCQ</option>
-      <option value="frq">FRQ</option>
-    </select>
-    <select id="examSubjectFilter" aria-label="科目">
-      <option value="all">全部科目</option>
-    </select>
-    <select id="examYearFilter" aria-label="年份">
-      <option value="all">全部年份</option>
-    </select>
+    <div class="exam-filter-popover">
+      <button type="button" class="filter-toggle-btn" id="examFilterToggle">筛选</button>
+      <div class="filter-panel hidden" id="examFilterPanel">
+        <label>
+          <span>类型</span>
+          <select id="examTypeFilter" aria-label="试卷类型">
+            <option value="all">全部类型</option>
+            <option value="mcq">MCQ</option>
+            <option value="frq">FRQ</option>
+          </select>
+        </label>
+        <label>
+          <span>科目</span>
+          <select id="examSubjectFilter" aria-label="科目">
+            <option value="all">全部科目</option>
+          </select>
+        </label>
+        <label>
+          <span>年份</span>
+          <select id="examYearFilter" aria-label="年份">
+            <option value="all">全部年份</option>
+          </select>
+        </label>
+        <div class="filter-panel-actions">
+          <button type="button" class="filter-reset-btn" id="examFilterReset">重置</button>
+          <button type="button" class="filter-apply-btn" id="examFilterApply">应用</button>
+        </div>
+      </div>
+    </div>
   </div>
   <div id="homeView" class="view-container">
     <div class="exam-grid" id="examGridContainer"></div>

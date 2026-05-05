@@ -47,6 +47,10 @@
   const examTypeSelect = document.getElementById('examType');
   const imageUploadInput = document.getElementById('imageUploadInput');
   const examSearchInput = document.getElementById('examSearchInput');
+  const examFilterToggle = document.getElementById('examFilterToggle');
+  const examFilterPanel = document.getElementById('examFilterPanel');
+  const examFilterApply = document.getElementById('examFilterApply');
+  const examFilterReset = document.getElementById('examFilterReset');
   const examTypeFilter = document.getElementById('examTypeFilter');
   const examSubjectFilter = document.getElementById('examSubjectFilter');
   const examYearFilter = document.getElementById('examYearFilter');
@@ -130,6 +134,33 @@
     if (examSearchInput) {
       examSearchInput.value = examSearchQuery;
     }
+    updateFilterToggleLabel();
+  }
+
+  function getActiveFilterCount() {
+    return [selectedTypeFilter, selectedSubjectFilter, selectedYearFilter]
+      .filter(value => value !== 'all')
+      .length;
+  }
+
+  function updateFilterToggleLabel() {
+    if (!examFilterToggle) return;
+    const activeCount = getActiveFilterCount();
+    examFilterToggle.textContent = activeCount > 0 ? `筛选 · ${activeCount}` : '筛选';
+    examFilterToggle.classList.toggle('has-active-filters', activeCount > 0);
+  }
+
+  function closeFilterPanel() {
+    examFilterPanel?.classList.add('hidden');
+  }
+
+  async function applyPanelFilters() {
+    selectedTypeFilter = examTypeFilter?.value || 'all';
+    selectedSubjectFilter = examSubjectFilter?.value || 'all';
+    selectedYearFilter = examYearFilter?.value || 'all';
+    updateFilterToggleLabel();
+    closeFilterPanel();
+    await renderExamCards();
   }
   // 初始化
   // 在 init 函数中
@@ -919,21 +950,32 @@ examForm.addEventListener('submit', async (e) => {
       await renderExamCards();
     });
   }
-  if (examTypeFilter) {
-    examTypeFilter.addEventListener('change', async () => {
-      selectedTypeFilter = examTypeFilter.value || 'all';
-      await renderExamCards();
+  if (examFilterToggle && examFilterPanel) {
+    examFilterToggle.addEventListener('click', (event) => {
+      event.stopPropagation();
+      examFilterPanel.classList.toggle('hidden');
     });
   }
-  if (examSubjectFilter) {
-    examSubjectFilter.addEventListener('change', async () => {
-      selectedSubjectFilter = examSubjectFilter.value || 'all';
-      await renderExamCards();
+  if (examFilterPanel) {
+    examFilterPanel.addEventListener('click', (event) => {
+      event.stopPropagation();
     });
   }
-  if (examYearFilter) {
-    examYearFilter.addEventListener('change', async () => {
-      selectedYearFilter = examYearFilter.value || 'all';
+  document.addEventListener('click', () => {
+    closeFilterPanel();
+  });
+  if (examFilterApply) {
+    examFilterApply.addEventListener('click', async () => {
+      await applyPanelFilters();
+    });
+  }
+  if (examFilterReset) {
+    examFilterReset.addEventListener('click', async () => {
+      selectedTypeFilter = 'all';
+      selectedSubjectFilter = 'all';
+      selectedYearFilter = 'all';
+      renderFilterOptions();
+      closeFilterPanel();
       await renderExamCards();
     });
   }

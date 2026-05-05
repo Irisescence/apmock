@@ -1445,22 +1445,19 @@ body.exam-mode .exam-session {
   align-items: center;
   gap: 10px;
   margin: 0 0 22px;
-  padding: 12px;
-  background: #fff;
-  border: 1px solid #e3eaf4;
-  border-radius: 14px;
-  box-shadow: 0 10px 24px rgba(30, 43, 94, 0.06);
-  width: 100%;
+  width: fit-content;
   max-width: 100%;
+  position: relative;
 }
 
 .exam-search-wrap {
-  flex: 1 1 280px;
-  min-width: 220px;
+  flex: 0 0 320px;
+  max-width: 320px;
+  min-width: 240px;
 }
 
 .exam-search-wrap input,
-.exam-filter-bar select,
+.filter-panel select,
 #examSubject,
 #examType,
 #examVisibility {
@@ -1478,13 +1475,88 @@ body.exam-mode .exam-session {
 }
 
 .exam-search-wrap input:focus,
-.exam-filter-bar select:focus {
+.filter-panel select:focus {
   border-color: #8ea6d8;
   box-shadow: 0 0 0 3px rgba(49, 80, 160, 0.12);
 }
 
-.exam-filter-bar select {
-  min-width: 118px;
+.exam-filter-popover {
+  position: relative;
+}
+
+.filter-toggle-btn {
+  min-height: 40px;
+  border: 1px solid #d5dfec;
+  border-radius: 10px;
+  padding: 9px 14px;
+  background: #fff;
+  color: #1e2b5e;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background 0.18s, border-color 0.18s, box-shadow 0.18s;
+}
+
+.filter-toggle-btn:hover,
+.filter-toggle-btn.has-active-filters {
+  background: #eef4ff;
+  border-color: #aebfe1;
+}
+
+.filter-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 1200;
+  width: 240px;
+  padding: 14px;
+  background: #fff;
+  border: 1px solid #dfe7f3;
+  border-radius: 14px;
+  box-shadow: 0 18px 38px rgba(24, 40, 80, 0.16);
+}
+
+.filter-panel label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: #53627a;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.filter-panel label + label {
+  margin-top: 12px;
+}
+
+.filter-panel select {
+  width: 100%;
+}
+
+.filter-panel-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.filter-reset-btn,
+.filter-apply-btn {
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.filter-reset-btn {
+  border: 1px solid #d5dfec;
+  background: #fff;
+  color: #53627a;
+}
+
+.filter-apply-btn {
+  border: 1px solid #1e2b5e;
+  background: #1e2b5e;
+  color: #fff;
 }
 
 .cloud-mcq-only select {
@@ -1499,11 +1571,20 @@ body.exam-mode .exam-session {
   }
 
   .exam-search-wrap {
+    flex-basis: auto;
+    max-width: none;
     min-width: 0;
   }
 
-  .exam-filter-bar select {
+  .exam-filter-popover,
+  .filter-toggle-btn,
+  .filter-panel {
     width: 100%;
+  }
+
+  .filter-panel {
+    position: static;
+    margin-top: 8px;
   }
 }
 /* DOCX import preview */
