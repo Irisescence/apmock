@@ -151,15 +151,14 @@ body {
 }
 
 .exam-card {
-  --exam-card-edge-gap: 24px;
   background: white;
   border-radius: 22px;
-  padding: var(--exam-card-edge-gap) 28px var(--exam-card-edge-gap);
+  padding: 24px 28px 16px;
   box-shadow: 0 14px 30px -10px rgba(18, 35, 60, 0.12);
   border: 1px solid #e2e8f1;
   transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
   position: relative;
-  min-height: 424px;
+  min-height: 398px;
   display: flex;
   flex-direction: column;
 }
@@ -297,7 +296,7 @@ body {
 .exam-history-slot {
   min-height: 46px;
   margin-top: 10px;
-  margin-bottom: var(--exam-card-edge-gap);
+  margin-bottom: 6px;
   padding: 8px 0 0;
   border-top: 1px dashed #d5dfec;
   color: #728096;
@@ -312,7 +311,6 @@ body {
 .exam-history-slot.teacher-spacer {
   display: flex;
   align-items: flex-start;
-  min-height: auto;
   border-top: 0;
   padding-top: 0;
 }
