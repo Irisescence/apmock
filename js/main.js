@@ -80,7 +80,12 @@
     return (exam.examType || exam.type || 'mcq').toLowerCase();
   }
 
+  function getExamSubject(exam) {
+    return exam.subject || '';
+  }
+
   function getExamYears(exam) {
+    if (Number.isInteger(exam.year)) return [String(exam.year)];
     const text = `${exam.title || ''} ${exam.description || ''}`;
     return Array.from(new Set(text.match(/\b(?:19|20)\d{2}\b/g) || []));
   }
@@ -96,7 +101,7 @@
       visibleExams = visibleExams.filter(exam => getExamType(exam) === selectedTypeFilter);
     }
     if (selectedSubjectFilter !== 'all') {
-      visibleExams = visibleExams.filter(exam => exam.subject === selectedSubjectFilter);
+      visibleExams = visibleExams.filter(exam => getExamSubject(exam) === selectedSubjectFilter);
     }
     if (selectedYearFilter !== 'all') {
       visibleExams = visibleExams.filter(exam => getExamYears(exam).includes(selectedYearFilter));
@@ -109,7 +114,7 @@
     const baseExams = getBaseVisibleExams();
 
     if (examSubjectFilter) {
-      const subjects = Array.from(new Set(baseExams.map(exam => exam.subject).filter(Boolean))).sort();
+      const subjects = Array.from(new Set(baseExams.map(getExamSubject).filter(Boolean))).sort();
       const currentSubject = selectedSubjectFilter;
       examSubjectFilter.innerHTML = '<option value="all">全部科目</option>' + subjects
         .map(subject => `<option value="${escapeAttribute(subject)}">${escapeAttribute(subject)}</option>`)
@@ -255,7 +260,7 @@ async function renderExamCards() {
             <button class="icon-btn" onclick="deleteExam('${exam.id}')" title="删除">🗑</button>
           </div>
           <div class="exam-badge-row">
-            <span class="exam-badge">${exam.subject}</span>
+            <span class="exam-badge">${getExamSubject(exam)}</span>
             <span class="exam-type-badge">${typeLabel}</span>
           </div>
           <div class="exam-copy-block">
@@ -297,7 +302,7 @@ async function renderExamCards() {
             <button class="icon-btn" onclick="deleteExam('${exam.id}')" title="删除">🗑</button>
           </div>
           <div class="exam-badge-row">
-            <span class="exam-badge">${exam.subject}</span>
+            <span class="exam-badge">${getExamSubject(exam)}</span>
             <span class="exam-type-badge">${typeLabel}</span>
           </div>
           <div class="exam-copy-block">

@@ -29,12 +29,48 @@ class ExamDatabase {
     return this.userId;
   }
 
+  inferYearFromText(...parts) {
+    const text = parts.filter(Boolean).join(' ');
+    const match = text.match(/\b(?:19|20)\d{2}\b/);
+    return match ? Number(match[0]) : null;
+  }
+
+  inferSubjectFromText(...parts) {
+    const text = parts.filter(Boolean).join(' ').toLowerCase();
+    const normalized = text.replace(/[^a-z0-9]+/g, ' ');
+
+    if (/\bcalculus\s*ab\b/.test(normalized) || /\bcalc\s*ab\b/.test(normalized)) {
+      return 'AP Calculus AB';
+    }
+    if (/\bcalculus\s*bc\b/.test(normalized) || /\bcalc\s*bc\b/.test(normalized)) {
+      return 'AP Calculus BC';
+    }
+    if (/\bmacro(?:economics)?\b/.test(normalized) || /\bmacroeconomics\b/.test(normalized)) {
+      return 'AP MacroEconomics';
+    }
+    if (/\bmicro(?:economics)?\b/.test(normalized) || /\bmicroeconomics\b/.test(normalized)) {
+      return 'AP MicroEconomics';
+    }
+    if (/\bchem(?:istry)?\b/.test(normalized)) {
+      return 'AP Chemistry';
+    }
+    if (/\bstats?\b/.test(normalized) || /\bstatistics\b/.test(normalized)) {
+      return 'AP Statistics';
+    }
+
+    return null;
+  }
+
   mapExamRow(row, questions = []) {
+    const inferredSubject = this.inferSubjectFromText(row.title, row.description, row.subject);
+    const inferredYear = this.inferYearFromText(row.title, row.description);
     return {
       id: row.id,
       title: row.title,
       description: row.description,
-      subject: row.subject,
+      subject: inferredSubject || row.subject,
+      storedSubject: row.subject,
+      year: inferredYear,
       timeLimit: row.time_limit,
       examType: row.exam_type || 'mcq',
       isPublic: !!row.is_public,
@@ -65,8 +101,9 @@ class ExamDatabase {
   }
 
   extractYear(exam) {
-    const match = String(exam.description || '').match(/\b(19|20)\d{2}\b/);
-    return match ? Number(match[0]) : null;
+    return Number.isInteger(exam.year)
+      ? exam.year
+      : this.inferYearFromText(exam.title, exam.description);
   }
 
   sortExams(exams) {
@@ -176,7 +213,10 @@ class ExamDatabase {
     if ((examData.examType || 'mcq') !== 'mcq') {
       throw new Error('Cloud mode currently supports MCQ exams only. FRQ is reserved for a future update.');
     }
-    if (!examData.subject || !examData.title || !examData.description) {
+    const inferredSubject = this.inferSubjectFromText(examData.title, examData.description, examData.subject);
+    const normalizedSubject = inferredSubject || examData.subject;
+
+    if (!normalizedSubject || !examData.title || !examData.description) {
       throw new Error('Subject, title, and description are required.');
     }
     if (!Array.isArray(examData.questions) || examData.questions.length === 0) {
@@ -186,7 +226,7 @@ class ExamDatabase {
     const examPayload = {
       title: examData.title,
       description: examData.description,
-      subject: examData.subject,
+      subject: normalizedSubject,
       time_limit: Number(examData.timeLimit) || 45,
       exam_type: 'mcq',
       is_public: !!examData.isPublic,
