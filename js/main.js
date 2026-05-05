@@ -115,11 +115,18 @@ async function renderExamCards() {
       const typeLabel = 'MCQ';
       const latestRecord = latestRecords[exam.id];
       const showAttemptHistory = !canEditExams;
+      const titleClass = (exam.title || '').length > 28 ? ' long-title' : '';
       
       // 上次成绩信息
       let lastScoreHtml = '';
       if (!showAttemptHistory) {
-        lastScoreHtml = '<div class="exam-history-slot teacher-spacer"></div>';
+        lastScoreHtml = `
+          <div class="exam-history-slot teacher-spacer">
+            <button class="history-btn" onclick="viewHistory('${exam.id}')">
+              View Details
+            </button>
+          </div>
+        `;
       } else if (latestRecord) {
         const date = new Date(latestRecord.completedAt);
         const dateStr = `${date.getMonth()+1}/${date.getDate()} ${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
@@ -154,7 +161,7 @@ async function renderExamCards() {
             <span class="exam-type-badge">${typeLabel}</span>
           </div>
           <div class="exam-copy-block">
-            <div class="exam-title">${exam.title}</div>
+            <div class="exam-title${titleClass}">${exam.title}</div>
             <div class="exam-desc">${exam.description || ''}</div>
           </div>
           <div class="exam-meta">
@@ -180,8 +187,13 @@ async function renderExamCards() {
   }
     visibleExams.forEach(exam => {
       const typeLabel = 'MCQ';
+      const titleClass = (exam.title || '').length > 28 ? ' long-title' : '';
       const historySlot = canEditExams
-        ? '<div class="exam-history-slot teacher-spacer"></div>'
+        ? `<div class="exam-history-slot teacher-spacer">
+            <button class="history-btn" onclick="viewHistory('${exam.id}')">
+              View Details
+            </button>
+          </div>`
         : '<div class="exam-history-slot empty">No previous attempt</div>';
       html += `
         <div class="exam-card">
@@ -194,7 +206,7 @@ async function renderExamCards() {
             <span class="exam-type-badge">${typeLabel}</span>
           </div>
           <div class="exam-copy-block">
-            <div class="exam-title">${exam.title}</div>
+            <div class="exam-title${titleClass}">${exam.title}</div>
             <div class="exam-desc">${exam.description || ''}</div>
           </div>
           <div class="exam-meta">

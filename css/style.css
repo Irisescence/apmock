@@ -158,7 +158,7 @@ body {
   border: 1px solid #e2e8f1;
   transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
   position: relative;
-  min-height: 304px;
+  min-height: 486px;
   display: flex;
   flex-direction: column;
 }
@@ -239,7 +239,10 @@ body {
 }
 
 .exam-copy-block {
-  min-height: 92px;
+  min-height: 118px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
 }
 
 .exam-title {
@@ -250,21 +253,26 @@ body {
   line-height: 1.05;
   margin-bottom: 10px;
   letter-spacing: 0;
+  min-height: 66px;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
 
+.exam-title.long-title {
+  font-size: 1.68rem;
+  line-height: 1.08;
+}
+
 .exam-desc {
   color: #4a5a72;
-  font-size: 0.82rem;
-  line-height: 1.5;
-  min-height: 42px;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  min-height: 20px;
   overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .exam-meta {
@@ -274,7 +282,7 @@ body {
   gap: 7px;
   border-top: 1px solid #e2e8f1;
   padding-top: 15px;
-  min-height: 36px;
+  min-height: 52px;
   color: #526782;
   font-weight: 750;
   font-size: 0.84rem;
@@ -286,7 +294,7 @@ body {
 }
 
 .exam-history-slot {
-  min-height: 62px;
+  min-height: 74px;
   margin-top: 12px;
   margin-bottom: 12px;
   padding: 10px 0 0;
@@ -301,6 +309,8 @@ body {
 }
 
 .exam-history-slot.teacher-spacer {
+  display: flex;
+  align-items: flex-start;
   border-top: 0;
   padding-top: 0;
 }
