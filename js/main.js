@@ -114,10 +114,13 @@ async function renderExamCards() {
     visibleExams.forEach(exam => {
       const typeLabel = 'MCQ';
       const latestRecord = latestRecords[exam.id];
+      const showAttemptHistory = !canEditExams;
       
       // 上次成绩信息
       let lastScoreHtml = '';
-      if (latestRecord) {
+      if (!showAttemptHistory) {
+        lastScoreHtml = '<div class="exam-history-slot teacher-spacer"></div>';
+      } else if (latestRecord) {
         const date = new Date(latestRecord.completedAt);
         const dateStr = `${date.getMonth()+1}/${date.getDate()} ${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
         const percent = Math.round(latestRecord.score / latestRecord.total * 100);
@@ -156,6 +159,7 @@ async function renderExamCards() {
           </div>
           <div class="exam-meta">
             <span>${exam.timeLimit} min</span>
+            <span class="exam-meta-dot">·</span>
             <span>${exam.questions?.length || 0} questions</span>
           </div>
           ${lastScoreHtml}
@@ -176,6 +180,9 @@ async function renderExamCards() {
   }
     visibleExams.forEach(exam => {
       const typeLabel = 'MCQ';
+      const historySlot = canEditExams
+        ? '<div class="exam-history-slot teacher-spacer"></div>'
+        : '<div class="exam-history-slot empty">No previous attempt</div>';
       html += `
         <div class="exam-card">
           <div class="card-actions" style="display:${canEditExams ? 'flex' : 'none'}">
@@ -192,9 +199,10 @@ async function renderExamCards() {
           </div>
           <div class="exam-meta">
             <span>${exam.timeLimit} min</span>
+            <span class="exam-meta-dot">·</span>
             <span>${exam.questions?.length || 0} questions</span>
           </div>
-          <div class="exam-history-slot empty">No previous attempt</div>
+          ${historySlot}
           <button class="start-btn" onclick="startExam('${exam.id}')">Start Exam</button>
         </div>
       `;
