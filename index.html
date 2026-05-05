@@ -27,15 +27,19 @@
 
   <!-- 主页视图 -->
   <div class="exam-filter-bar">
-    <label for="subjectFilter">科目筛选</label>
-    <select id="subjectFilter">
+    <div class="exam-search-wrap">
+      <input type="search" id="examSearchInput" placeholder="搜索试卷标题">
+    </div>
+    <select id="examTypeFilter" aria-label="试卷类型">
+      <option value="all">全部类型</option>
+      <option value="mcq">MCQ</option>
+      <option value="frq">FRQ</option>
+    </select>
+    <select id="examSubjectFilter" aria-label="科目">
       <option value="all">全部科目</option>
-      <option value="AP Calculus AB">AP Calculus AB</option>
-      <option value="AP Calculus BC">AP Calculus BC</option>
-      <option value="AP Chemistry">AP Chemistry</option>
-      <option value="AP MacroEconomics">AP MacroEconomics</option>
-      <option value="AP MicroEconomics">AP MicroEconomics</option>
-      <option value="AP Statistics">AP Statistics</option>
+    </select>
+    <select id="examYearFilter" aria-label="年份">
+      <option value="all">全部年份</option>
     </select>
   </div>
   <div id="homeView" class="view-container">

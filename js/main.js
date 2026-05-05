@@ -35,7 +35,10 @@
   let isSavingExam = false;
   let currentRole = "guest";
   let canEditExams = false;
+  let examSearchQuery = '';
+  let selectedTypeFilter = 'all';
   let selectedSubjectFilter = 'all';
+  let selectedYearFilter = 'all';
 
   const examGridContainer = document.getElementById('examGridContainer');
   const editorModal = document.getElementById('editorModal');
@@ -43,7 +46,10 @@
   const examForm = document.getElementById('examForm');
   const examTypeSelect = document.getElementById('examType');
   const imageUploadInput = document.getElementById('imageUploadInput');
-  const subjectFilter = document.getElementById('subjectFilter');
+  const examSearchInput = document.getElementById('examSearchInput');
+  const examTypeFilter = document.getElementById('examTypeFilter');
+  const examSubjectFilter = document.getElementById('examSubjectFilter');
+  const examYearFilter = document.getElementById('examYearFilter');
 
 
   function applyRolePermissions() {
@@ -60,6 +66,70 @@
     if (canEditExams) return true;
     alert('Students can view exam lists and take exams, but cannot create or edit exams.');
     return false;
+  }
+
+  function getBaseVisibleExams() {
+    return canEditExams ? EXAMS : EXAMS.filter(exam => exam.isPublic === true);
+  }
+
+  function getExamType(exam) {
+    return (exam.examType || exam.type || 'mcq').toLowerCase();
+  }
+
+  function getExamYears(exam) {
+    const text = `${exam.title || ''} ${exam.description || ''}`;
+    return Array.from(new Set(text.match(/\b(?:19|20)\d{2}\b/g) || []));
+  }
+
+  function getFilteredExams() {
+    let visibleExams = getBaseVisibleExams();
+    const query = examSearchQuery.trim().toLowerCase();
+
+    if (query) {
+      visibleExams = visibleExams.filter(exam => (exam.title || '').toLowerCase().includes(query));
+    }
+    if (selectedTypeFilter !== 'all') {
+      visibleExams = visibleExams.filter(exam => getExamType(exam) === selectedTypeFilter);
+    }
+    if (selectedSubjectFilter !== 'all') {
+      visibleExams = visibleExams.filter(exam => exam.subject === selectedSubjectFilter);
+    }
+    if (selectedYearFilter !== 'all') {
+      visibleExams = visibleExams.filter(exam => getExamYears(exam).includes(selectedYearFilter));
+    }
+
+    return visibleExams;
+  }
+
+  function renderFilterOptions() {
+    const baseExams = getBaseVisibleExams();
+
+    if (examSubjectFilter) {
+      const subjects = Array.from(new Set(baseExams.map(exam => exam.subject).filter(Boolean))).sort();
+      const currentSubject = selectedSubjectFilter;
+      examSubjectFilter.innerHTML = '<option value="all">全部科目</option>' + subjects
+        .map(subject => `<option value="${escapeAttribute(subject)}">${escapeAttribute(subject)}</option>`)
+        .join('');
+      selectedSubjectFilter = subjects.includes(currentSubject) ? currentSubject : 'all';
+      examSubjectFilter.value = selectedSubjectFilter;
+    }
+
+    if (examYearFilter) {
+      const years = Array.from(new Set(baseExams.flatMap(getExamYears))).sort((a, b) => Number(b) - Number(a));
+      const currentYear = selectedYearFilter;
+      examYearFilter.innerHTML = '<option value="all">全部年份</option>' + years
+        .map(year => `<option value="${escapeAttribute(year)}">${escapeAttribute(year)}</option>`)
+        .join('');
+      selectedYearFilter = years.includes(currentYear) ? currentYear : 'all';
+      examYearFilter.value = selectedYearFilter;
+    }
+
+    if (examTypeFilter) {
+      examTypeFilter.value = selectedTypeFilter;
+    }
+    if (examSearchInput) {
+      examSearchInput.value = examSearchQuery;
+    }
   }
   // 初始化
   // 在 init 函数中
@@ -101,10 +171,7 @@ async function renderExamCards() {
   console.log('🎨 渲染试卷卡片...');
   
   // 获取所有试卷的最新记录
-  let visibleExams = canEditExams ? EXAMS : EXAMS.filter(exam => exam.isPublic === true);
-  if (selectedSubjectFilter !== 'all') {
-    visibleExams = visibleExams.filter(exam => exam.subject === selectedSubjectFilter);
-  }
+  let visibleExams = getFilteredExams();
   const latestRecords = await examDB.getAllLatestHistory();
   
   let html = '';
@@ -112,7 +179,7 @@ async function renderExamCards() {
     html = '<p style="grid-column:1/-1; text-align:center; padding:40px; color:#999;">暂无试卷，点击"新建试卷"开始</p>';
   } else {
     visibleExams.forEach(exam => {
-      const typeLabel = 'MCQ';
+      const typeLabel = getExamType(exam).toUpperCase();
       const latestRecord = latestRecords[exam.id];
       const showAttemptHistory = !canEditExams;
       const titleClass = (exam.title || '').length > 28 ? ' long-title' : '';
@@ -181,12 +248,9 @@ async function renderExamCards() {
 
   function renderExamCardsSync() {
     let html = '';
-    let visibleExams = canEditExams ? EXAMS : EXAMS.filter(exam => exam.isPublic === true);
-  if (selectedSubjectFilter !== 'all') {
-    visibleExams = visibleExams.filter(exam => exam.subject === selectedSubjectFilter);
-  }
+    let visibleExams = getFilteredExams();
     visibleExams.forEach(exam => {
-      const typeLabel = 'MCQ';
+      const typeLabel = getExamType(exam).toUpperCase();
       const titleClass = (exam.title || '').length > 28 ? ' long-title' : '';
       const historySlot = canEditExams
         ? `<div class="exam-history-slot teacher-spacer">
@@ -377,6 +441,7 @@ window.startExam = function(examId) {
     if (confirm('确定删除这套试卷吗？')) {
       await examDB.deleteExam(examId);
       EXAMS = await examDB.getUserExams();
+      renderFilterOptions();
       await renderExamCards();
     }
   };
@@ -737,6 +802,7 @@ examForm.addEventListener('submit', async (e) => {
     
     // 重新加载数据并刷新显示
     EXAMS = await examDB.getUserExams();
+    renderFilterOptions();
     await renderExamCards();
     console.log('✅ 保存成功，共', EXAMS.length, '套试卷');
     
@@ -847,9 +913,27 @@ examForm.addEventListener('submit', async (e) => {
     newExamMenu?.classList.add('hidden');
     openEditor(null);
   });
-  if (subjectFilter) {
-    subjectFilter.addEventListener('change', async () => {
-      selectedSubjectFilter = subjectFilter.value || 'all';
+  if (examSearchInput) {
+    examSearchInput.addEventListener('input', async () => {
+      examSearchQuery = examSearchInput.value || '';
+      await renderExamCards();
+    });
+  }
+  if (examTypeFilter) {
+    examTypeFilter.addEventListener('change', async () => {
+      selectedTypeFilter = examTypeFilter.value || 'all';
+      await renderExamCards();
+    });
+  }
+  if (examSubjectFilter) {
+    examSubjectFilter.addEventListener('change', async () => {
+      selectedSubjectFilter = examSubjectFilter.value || 'all';
+      await renderExamCards();
+    });
+  }
+  if (examYearFilter) {
+    examYearFilter.addEventListener('change', async () => {
+      selectedYearFilter = examYearFilter.value || 'all';
       await renderExamCards();
     });
   }

@@ -153,12 +153,12 @@ body {
 .exam-card {
   background: white;
   border-radius: 22px;
-  padding: 24px 28px 22px;
+  padding: 24px 28px 16px;
   box-shadow: 0 14px 30px -10px rgba(18, 35, 60, 0.12);
   border: 1px solid #e2e8f1;
   transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
   position: relative;
-  min-height: 418px;
+  min-height: 398px;
   display: flex;
   flex-direction: column;
 }
@@ -294,9 +294,9 @@ body {
 }
 
 .exam-history-slot {
-  min-height: 58px;
+  min-height: 46px;
   margin-top: 10px;
-  margin-bottom: 10px;
+  margin-bottom: 6px;
   padding: 8px 0 0;
   border-top: 1px dashed #d5dfec;
   color: #728096;
@@ -318,7 +318,7 @@ body {
 .exam-history-slot.has-history {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .exam-history-row {
@@ -359,7 +359,7 @@ body {
   cursor: pointer;
   width: 100%;
   margin-top: 0;
-  min-height: 48px;
+  min-height: 46px;
   transition: background 0.2s, box-shadow 0.2s, transform 0.2s;
 }
 
@@ -1445,21 +1445,21 @@ body.exam-mode .exam-session {
   align-items: center;
   gap: 10px;
   margin: 0 0 22px;
-  padding: 12px 14px;
+  padding: 12px;
   background: #fff;
   border: 1px solid #e3eaf4;
   border-radius: 14px;
   box-shadow: 0 10px 24px rgba(30, 43, 94, 0.06);
-  width: fit-content;
+  width: 100%;
   max-width: 100%;
 }
 
-.exam-filter-bar label {
-  color: #516178;
-  font-weight: 700;
-  font-size: 0.92rem;
+.exam-search-wrap {
+  flex: 1 1 280px;
+  min-width: 220px;
 }
 
+.exam-search-wrap input,
 .exam-filter-bar select,
 #examSubject,
 #examType,
@@ -1472,6 +1472,21 @@ body.exam-mode .exam-session {
   font: inherit;
 }
 
+.exam-search-wrap input {
+  width: 100%;
+  outline: none;
+}
+
+.exam-search-wrap input:focus,
+.exam-filter-bar select:focus {
+  border-color: #8ea6d8;
+  box-shadow: 0 0 0 3px rgba(49, 80, 160, 0.12);
+}
+
+.exam-filter-bar select {
+  min-width: 118px;
+}
+
 .cloud-mcq-only select {
   background: #f6f8fc;
 }
@@ -1481,6 +1496,10 @@ body.exam-mode .exam-session {
     width: 100%;
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .exam-search-wrap {
+    min-width: 0;
   }
 
   .exam-filter-bar select {
