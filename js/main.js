@@ -495,10 +495,16 @@ window.startExam = function(examId) {
 
   window.deleteExam = async function(examId) {
     if (confirm('确定删除这套试卷吗？')) {
-      await examDB.deleteExam(examId);
-      EXAMS = await examDB.getUserExams();
-      renderFilterOptions();
-      await renderExamCards();
+      try {
+        await examDB.deleteExam(examId);
+        EXAMS = await examDB.getUserExams();
+        renderFilterOptions();
+        await renderExamCards();
+        alert('试卷已删除');
+      } catch (error) {
+        console.error('Delete exam failed:', error);
+        alert('删除试卷失败：' + (error.message || '未知错误'));
+      }
     }
   };
 

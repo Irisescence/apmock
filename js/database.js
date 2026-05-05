@@ -287,7 +287,9 @@ class ExamDatabase {
       .from('attempts')
       .delete()
       .eq('exam_id', id);
-    if (attemptError) throw attemptError;
+    if (attemptError) {
+      console.warn('Failed to delete exam attempts; continuing with exam deletion:', attemptError);
+    }
 
     const { error: questionError } = await client
       .from('questions')
@@ -295,11 +297,15 @@ class ExamDatabase {
       .eq('exam_id', id);
     if (questionError) throw questionError;
 
-    const { error } = await client
+    const { data: deletedExamRows, error } = await client
       .from('exams')
       .delete()
-      .eq('id', id);
+      .eq('id', id)
+      .select('id');
     if (error) throw error;
+    if (!deletedExamRows || deletedExamRows.length === 0) {
+      throw new Error('No exam was deleted. Please check that you own this exam and have delete permission.');
+    }
 
     await this.deleteStorageAssets(storagePaths);
   }
