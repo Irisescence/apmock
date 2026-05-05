@@ -32,9 +32,85 @@
     return "";
   }
 
+  function directChildrenByLocalName(node, localName) {
+    return Array.from(node?.childNodes || []).filter((child) => child.nodeType === 1 && child.localName === localName);
+  }
+
+  function firstDirectChild(node, localName) {
+    return directChildrenByLocalName(node, localName)[0] || null;
+  }
+
+  function compactInlineText(value) {
+    return String(value || "").replace(/[ \t\r\n]+/g, " ").trim();
+  }
+
+  function isSimpleMathText(value) {
+    return /^[A-Za-z0-9πθ]+(?:[_^][A-Za-z0-9πθ]+)?$/.test(String(value || "").trim());
+  }
+
+  function wrapMathPart(value) {
+    const text = compactInlineText(value);
+    if (!text) return "";
+    return isSimpleMathText(text) ? text : `(${text})`;
+  }
+
+  function mathTextFromNode(node) {
+    if (!node || node.nodeType !== 1) return "";
+    const name = node.localName;
+
+    if (name === "t") return node.textContent || "";
+    if (name === "r") return Array.from(node.childNodes).map(mathTextFromNode).join("");
+
+    if (name === "f") {
+      const numerator = mathTextFromNode(firstDirectChild(node, "num"));
+      const denominator = mathTextFromNode(firstDirectChild(node, "den"));
+      if (numerator || denominator) return `${wrapMathPart(numerator)}/${wrapMathPart(denominator)}`;
+    }
+
+    if (name === "rad") {
+      const degree = mathTextFromNode(firstDirectChild(node, "deg"));
+      const base = mathTextFromNode(firstDirectChild(node, "e"));
+      if (base) return degree ? `root(${wrapMathPart(degree)}, ${base})` : `sqrt(${base})`;
+    }
+
+    if (name === "sSup") {
+      const base = mathTextFromNode(firstDirectChild(node, "e"));
+      const sup = mathTextFromNode(firstDirectChild(node, "sup"));
+      if (base || sup) return `${wrapMathPart(base)}^${wrapMathPart(sup)}`;
+    }
+
+    if (name === "sSub") {
+      const base = mathTextFromNode(firstDirectChild(node, "e"));
+      const sub = mathTextFromNode(firstDirectChild(node, "sub"));
+      if (base || sub) return `${wrapMathPart(base)}_${wrapMathPart(sub)}`;
+    }
+
+    if (name === "sSubSup") {
+      const base = mathTextFromNode(firstDirectChild(node, "e"));
+      const sub = mathTextFromNode(firstDirectChild(node, "sub"));
+      const sup = mathTextFromNode(firstDirectChild(node, "sup"));
+      if (base || sub || sup) return `${wrapMathPart(base)}_${wrapMathPart(sub)}^${wrapMathPart(sup)}`;
+    }
+
+    if (name === "d") {
+      const content = mathTextFromNode(firstDirectChild(node, "e"));
+      return content ? `(${content})` : "";
+    }
+
+    return Array.from(node.childNodes).map(mathTextFromNode).join("");
+  }
+
   function textFromNode(node) {
-    return Array.from(node.getElementsByTagNameNS("http://schemas.openxmlformats.org/wordprocessingml/2006/main", "t"))
-      .map((item) => item.textContent || "").join("").replace(/\s+/g, " ").trim();
+    function walk(current) {
+      if (current.nodeType === 3) return current.textContent || "";
+      if (current.nodeType !== 1) return "";
+      if (current.localName === "oMath" || current.localName === "oMathPara") return mathTextFromNode(current);
+      if (current.localName === "t") return current.textContent || "";
+      if (current.localName === "tab") return " ";
+      if (current.localName === "br" || current.localName === "cr") return "\n";
+      return Array.from(current.childNodes).map(walk).join("");
+    }
+    return compactInlineText(walk(node)).replace(/(\([A-E]\)|[A-E][.)])(?=\S)/g, "$1 ");
   }
 
   function blipIdsFromNode(node) {
@@ -103,7 +179,11 @@
 
     const mammothResult = await mammoth.convertToHtml({ arrayBuffer });
     const rawTextResult = await mammoth.extractRawText({ arrayBuffer });
-    return { file_name: file.name, blocks, media_map: mediaMap, html: mammothResult.value, raw_text: rawTextResult.value };
+    const blockRawText = blocks
+      .map((block) => block.type === "table" ? block.markdown : block.text)
+      .filter(Boolean)
+      .join("\n");
+    return { file_name: file.name, blocks, media_map: mediaMap, html: mammothResult.value, raw_text: `${blockRawText}\n${rawTextResult.value || ""}`.trim() };
   }
 
   function chooseFiles(files) {
@@ -468,7 +548,7 @@
       showStatus("正在读取 DOCX 结构和图片...");
       const examDoc = await parseDocxPackage(examFile);
       const answerDoc = await readAnswerFile(answerFile);
-      showStatus("正在调用 AI 识别题目和选项...");
+      showStatus("正在尽全力识别试卷QaQ，可能需要3-5分钟，期间请不要打开试卷哦！");
       const parserPayload = compactExamDocForParser(examDoc);
       const parsed = normalizeTableChoiceOptions(supplementQuestionStems(await callParser({ exam_doc: parserPayload }), examDoc), examDoc);
       const merged = mergeAnswers(parsed, answerDoc.parsed);
