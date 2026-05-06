@@ -1,9 +1,8 @@
-(function () {
+﻿(function () {
   "use strict";
 
   const SUPABASE_URL = "https://dantlodnorpvnlzzypsg.supabase.co";
   const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_phLI1fQMrcRZJVrkXcBUxQ_3nTgwjo_";
-  const PROFILE_COLUMNS = "id, email, role, real_name, nickname, created_at";
   const TEACHER_SIGNUP_CODE = "lueggsb";
 
   const text = {
@@ -53,8 +52,16 @@
   }
 
   function getInitial() {
-    const name = getDisplayName().trim();
+    const name = (currentProfile?.nickname || currentProfile?.real_name || currentUser?.email || "?").trim();
     return (name[0] || "?").toUpperCase();
+  }
+
+  function getAvatarMarkup(className = "") {
+    const avatarUrl = currentProfile?.avatar_url;
+    if (avatarUrl) {
+      return `<span class="account-avatar ${className}"><img src="${escapeHtml(avatarUrl)}" alt=""></span>`;
+    }
+    return `<span class="account-avatar ${className}">${escapeHtml(getInitial())}</span>`;
   }
 
   function friendlyAuthError(error) {
@@ -143,7 +150,26 @@
     return data;
   }
 
-  async function saveProfileDetails(realName, nickname = "") {
+  async function uploadProfileAvatar(file) {
+    const session = await getSession();
+    const user = session?.user;
+    if (!user) throw new Error("请先登录后再上传头像。");
+    if (!file) return currentProfile?.avatar_url || null;
+    if (!file.type.startsWith("image/")) throw new Error("请上传图片文件。");
+    if (file.size > 2 * 1024 * 1024) throw new Error("头像图片不能超过 2MB。");
+
+    const extension = (file.name.split(".").pop() || "png").toLowerCase().replace(/[^a-z0-9]/g, "") || "png";
+    const path = `${user.id}/${Date.now()}.${extension}`;
+    const { error } = await supabaseClient.storage
+      .from("avatars")
+      .upload(path, file, { upsert: true, contentType: file.type });
+    if (error) throw error;
+
+    const { data } = supabaseClient.storage.from("avatars").getPublicUrl(path);
+    return data.publicUrl;
+  }
+
+  async function saveProfileDetails(realName, nickname = "", avatarUrl = undefined) {
     const session = await getSession();
     const user = session?.user;
     if (!user) throw new Error("\u8bf7\u5148\u767b\u5f55\u540e\u518d\u4fdd\u5b58\u8d44\u6599\u3002");
@@ -152,17 +178,31 @@
     const cleanNickname = nickname.trim();
     if (!cleanRealName) throw new Error("\u8bf7\u586b\u5199\u771f\u5b9e\u59d3\u540d\u3002");
 
-    const { data, error } = await supabaseClient
+    const payload = {
+      id: user.id,
+      email: user.email,
+      role: currentProfile?.role || "student",
+      real_name: cleanRealName,
+      nickname: cleanNickname || null,
+      avatar_url: avatarUrl === undefined ? (currentProfile?.avatar_url || null) : avatarUrl
+    };
+
+    let { data, error } = await supabaseClient
       .from("profiles")
-      .upsert({
-        id: user.id,
-        email: user.email,
-        role: currentProfile?.role || "student",
-        real_name: cleanRealName,
-        nickname: cleanNickname || null
-      }, { onConflict: "id" })
+      .upsert(payload, { onConflict: "id" })
       .select("*")
       .single();
+
+    if (error && String(error.message || "").includes("avatar_url")) {
+      delete payload.avatar_url;
+      const retry = await supabaseClient
+        .from("profiles")
+        .upsert(payload, { onConflict: "id" })
+        .select("*")
+        .single();
+      data = retry.data;
+      error = retry.error;
+    }
 
     if (error) throw error;
     currentProfile = { ...data, role: normalizeRole(data.role) };
@@ -217,7 +257,7 @@
     container.innerHTML = `
       <div class="account-menu-wrap">
         <button class="account-entry" id="accountEntry" type="button" aria-haspopup="true" aria-expanded="false">
-          <span class="account-avatar">${escapeHtml(getInitial())}</span>
+          ${getAvatarMarkup()}
           <span class="account-copy">
             <strong>${safeName}</strong>
             <small>${safeRole}</small>
@@ -248,12 +288,7 @@
     });
 
     document.getElementById("viewAccountBtn")?.addEventListener("click", () => {
-      alert([
-        `${text.email}: ${currentUser.email}`,
-        `${text.realName}: ${currentProfile?.real_name || text.notSet}`,
-        `${text.nickname}: ${currentProfile?.nickname || text.notSet}`,
-        `${text.role}: ${role}`
-      ].join("\n"));
+      window.location.href = "profile.html";
     });
 
     document.getElementById("logoutBtn")?.addEventListener("click", async () => {
@@ -376,9 +411,11 @@
       clearAuthMessage();
       const realName = document.getElementById("profileRealName").value;
       const nickname = document.getElementById("profileNickname").value;
+      const avatarFile = document.getElementById("profileAvatar")?.files?.[0] || null;
 
       try {
-        await saveProfileDetails(realName, nickname);
+        const avatarUrl = avatarFile ? await uploadProfileAvatar(avatarFile) : undefined;
+        await saveProfileDetails(realName, nickname, avatarUrl);
         setAuthMessage("\u8d44\u6599\u5df2\u4fdd\u5b58\uff0c\u6b63\u5728\u8fd4\u56de\u9996\u9875\u3002", "success");
         window.location.href = "index.html";
       } catch (error) {
@@ -397,6 +434,7 @@
     requireLogin,
     renderAuthBox,
     saveProfileDetails,
+    uploadProfileAvatar,
     initAuthPage,
     normalizeRole,
     isTeacherLike,
