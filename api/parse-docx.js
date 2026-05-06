@@ -66,7 +66,7 @@ export default async function handler(req, res) {
 
     const compactDoc = {
       file_name: exam_doc.file_name,
-      blocks: exam_doc.blocks.slice(0, 900),
+      blocks: exam_doc.blocks.slice(0, 600),
       raw_text_preview: String(exam_doc.raw_text || "").slice(0, 12000)
     };
 

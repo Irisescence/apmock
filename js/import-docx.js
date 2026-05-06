@@ -466,7 +466,7 @@
   function compactExamDocForParser(examDoc) {
     return {
       file_name: examDoc.file_name,
-      blocks: (examDoc.blocks || []).slice(0, 900).map((block) => {
+      blocks: (examDoc.blocks || []).slice(0, 600).map((block) => {
         if (block.type === "paragraph") {
           return {
             index: block.index,
