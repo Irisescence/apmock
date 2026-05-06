@@ -476,9 +476,11 @@ window.startExam = function(examId) {
     document.getElementById('examSubject').value = exam?.subject || '';
     document.getElementById('examTitle').value = exam?.title || '';
     document.getElementById('examDesc').value = exam?.description || '';
-    document.getElementById('examTime').value = exam?.timeLimit || 45;
+    document.getElementById('examTime').value = exam?.timeLimit || 90;
     document.getElementById('examType').value = 'mcq';
-    document.getElementById('examVisibility').value = exam?.accessLevel || (exam?.isPublic ? 'public' : 'private');
+    document.getElementById('examVisibility').value = exam
+      ? (exam.accessLevel || (exam.isPublic ? 'public' : 'private'))
+      : 'public';
     
     renderQuestionsEditor(exam?.questions || [], 'mcq');
     editorModal.classList.remove('hidden');
@@ -834,11 +836,11 @@ examForm.addEventListener('submit', async (e) => {
   const description = document.getElementById('examDesc').value.trim();
   const timeLimit = parseInt(document.getElementById('examTime').value);
   const examType = 'mcq';
-  const accessLevel = document.getElementById('examVisibility').value || 'private';
+  const accessLevel = document.getElementById('examVisibility').value || 'public';
   const isPublic = accessLevel === 'public';
   const questions = getCurrentQuestionsFromForm();
   
-  if (!subject || !title || !description || questions.length === 0) {
+  if (!subject || !title || questions.length === 0) {
     isSavingExam = false;
     alert('请填写完整信息并至少添加一道题目');
     return;
@@ -925,11 +927,11 @@ examForm.addEventListener('submit', async (e) => {
     const description = document.getElementById('examDesc').value.trim();
     const timeLimit = parseInt(document.getElementById('examTime').value);
     const examType = 'mcq';
-    const accessLevel = document.getElementById('examVisibility').value || 'private';
+    const accessLevel = document.getElementById('examVisibility').value || 'public';
     const isPublic = accessLevel === 'public';
     const questions = getCurrentQuestionsFromForm();
     
-    if (!subject || !title || !description || questions.length === 0) {
+    if (!subject || !title || questions.length === 0) {
       alert('请填写完整信息并至少添加一道题目');
       return;
     }

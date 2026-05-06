@@ -217,8 +217,8 @@ class ExamDatabase {
     const inferredSubject = this.inferSubjectFromText(examData.title, examData.description, examData.subject);
     const normalizedSubject = inferredSubject || examData.subject;
 
-    if (!normalizedSubject || !examData.title || !examData.description) {
-      throw new Error('Subject, title, and description are required.');
+    if (!normalizedSubject || !examData.title) {
+      throw new Error('Subject and title are required.');
     }
     if (!Array.isArray(examData.questions) || examData.questions.length === 0) {
       throw new Error('Please add at least one question.');
@@ -230,9 +230,9 @@ class ExamDatabase {
 
     const examPayload = {
       title: examData.title,
-      description: examData.description,
+      description: examData.description || '',
       subject: normalizedSubject,
-      time_limit: Number(examData.timeLimit) || 45,
+      time_limit: Number(examData.timeLimit) || 90,
       exam_type: 'mcq',
       access_level: accessLevel,
       is_public: accessLevel === 'public',
