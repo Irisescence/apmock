@@ -1899,10 +1899,24 @@ body.exam-mode .exam-session {
   background: #fff;
 }
 
-.profile-topbar a {
+.profile-return-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  border: 1px solid #aebdd4;
+  border-radius: 4px;
+  padding: 8px 14px;
+  background: #fff;
   color: #1e2b5e;
   font-weight: 800;
   text-decoration: none;
+  box-shadow: 0 8px 18px rgba(30, 43, 94, 0.08);
+}
+
+.profile-return-btn:hover {
+  background: #edf3ff;
+  border-color: #8fa4c5;
 }
 
 .profile-shell {

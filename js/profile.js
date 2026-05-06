@@ -35,7 +35,7 @@
     const nickname = profile?.nickname || "";
     app.innerHTML = `
       <header class="profile-topbar">
-        <a href="index.html">Return</a>
+        <a class="profile-return-btn" href="index.html">Return</a>
         <strong>AP Practice Exam</strong>
       </header>
       <main class="profile-shell">

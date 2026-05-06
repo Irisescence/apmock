@@ -42,6 +42,25 @@ insert into storage.buckets (id, name, public)
 values ('avatars', 'avatars', true)
 on conflict (id) do update set public = true;
 
+drop policy if exists "Public can view avatars" on storage.objects;
+drop policy if exists "Users can upload their own avatars" on storage.objects;
+drop policy if exists "Users can update their own avatars" on storage.objects;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_policies
+    where schemaname = 'storage'
+      and tablename = 'objects'
+      and policyname = 'Public can view avatars'
+  ) then
+    create policy "Public can view avatars"
+    on storage.objects
+    for select
+    using (bucket_id = 'avatars');
+  end if;
+end $$;
+
 do $$
 begin
   if not exists (
@@ -56,7 +75,7 @@ begin
     to authenticated
     with check (
       bucket_id = 'avatars'
-      and (storage.foldername(name))[1] = auth.uid()::text
+      and owner = auth.uid()
     );
   end if;
 end $$;
@@ -75,11 +94,11 @@ begin
     to authenticated
     using (
       bucket_id = 'avatars'
-      and (storage.foldername(name))[1] = auth.uid()::text
+      and owner = auth.uid()
     )
     with check (
       bucket_id = 'avatars'
-      and (storage.foldername(name))[1] = auth.uid()::text
+      and owner = auth.uid()
     );
   end if;
 end $$;
