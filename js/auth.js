@@ -209,6 +209,28 @@
     return currentProfile;
   }
 
+  async function updateProfileRole(role, teacherCode = "") {
+    const session = await getSession();
+    const user = session?.user;
+    if (!user) throw new Error("请先登录后再修改身份。");
+
+    const cleanRole = normalizeRole(role);
+    if (cleanRole === "teacher" && teacherCode !== TEACHER_SIGNUP_CODE) {
+      throw new Error("教师代码不正确，请重新输入。");
+    }
+
+    const { data, error } = await supabaseClient
+      .from("profiles")
+      .update({ role: cleanRole })
+      .eq("id", user.id)
+      .select("*")
+      .single();
+
+    if (error) throw error;
+    currentProfile = { ...data, role: normalizeRole(data.role) };
+    return currentProfile;
+  }
+
   async function logout() {
     const { error } = await supabaseClient.auth.signOut();
     if (error) throw error;
@@ -435,6 +457,7 @@
     renderAuthBox,
     saveProfileDetails,
     uploadProfileAvatar,
+    updateProfileRole,
     initAuthPage,
     normalizeRole,
     isTeacherLike,

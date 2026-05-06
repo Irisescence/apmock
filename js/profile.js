@@ -48,7 +48,13 @@
           </button>
           <dl class="profile-meta">
             <div><dt>Email</dt><dd>${escapeHtml(profile?.email || "-")}</dd></div>
-            <div><dt>Role</dt><dd>${escapeHtml(profile?.role || "student")}</dd></div>
+            <div class="profile-role-row">
+              <dt>Role</dt>
+              <dd>
+                <span>${escapeHtml(profile?.role || "student")}</span>
+                <button type="button" onclick="toggleRoleEdit(true)">Edit</button>
+              </dd>
+            </div>
             <div><dt>Joined</dt><dd>${formatDate(profile?.created_at)}</dd></div>
           </dl>
         </aside>
@@ -116,6 +122,61 @@
   window.toggleProfileEdit = function(editing) {
     render(editing);
     if (editing) attachEditHandler();
+  };
+
+  window.toggleRoleEdit = function(show) {
+    const roleRow = document.querySelector(".profile-role-row");
+    if (!roleRow) return;
+    if (!show) {
+      roleRow.outerHTML = `
+        <div class="profile-role-row">
+          <dt>Role</dt>
+          <dd>
+            <span>${escapeHtml(profile?.role || "student")}</span>
+            <button type="button" onclick="toggleRoleEdit(true)">Edit</button>
+          </dd>
+        </div>
+      `;
+      return;
+    }
+
+    roleRow.outerHTML = `
+      <div class="profile-role-row editing">
+        <dt>Role</dt>
+        <dd>
+          <select id="profileRoleSelect">
+            <option value="student" ${(profile?.role || "student") === "student" ? "selected" : ""}>student</option>
+            <option value="teacher" ${(profile?.role || "student") === "teacher" ? "selected" : ""}>teacher</option>
+          </select>
+          <input type="password" id="profileTeacherCode" placeholder="教师代码">
+          <button type="button" onclick="saveRoleChange()">Save</button>
+          <button type="button" onclick="toggleRoleEdit(false)">Cancel</button>
+        </dd>
+      </div>
+    `;
+    syncRoleCodeField();
+    document.getElementById("profileRoleSelect")?.addEventListener("change", syncRoleCodeField);
+  };
+
+  function syncRoleCodeField() {
+    const role = document.getElementById("profileRoleSelect")?.value || "student";
+    const codeInput = document.getElementById("profileTeacherCode");
+    if (!codeInput) return;
+    codeInput.disabled = role !== "teacher";
+    codeInput.placeholder = role === "teacher" ? "请输入教师代码" : "切换为教师时填写";
+    if (role !== "teacher") codeInput.value = "";
+  }
+
+  window.saveRoleChange = async function() {
+    const role = document.getElementById("profileRoleSelect")?.value || "student";
+    const code = document.getElementById("profileTeacherCode")?.value.trim() || "";
+    try {
+      profile = await window.apAuth.updateProfileRole(role, code);
+      render(false, "Role updated.");
+    } catch (error) {
+      render(false, "身份修改失败：" + window.apAuth.friendlyAuthError(error));
+      toggleRoleEdit(true);
+    }
   };
 
   function attachEditHandler() {
