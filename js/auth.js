@@ -4,6 +4,7 @@
   const SUPABASE_URL = "https://dantlodnorpvnlzzypsg.supabase.co";
   const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_phLI1fQMrcRZJVrkXcBUxQ_3nTgwjo_";
   const PROFILE_COLUMNS = "id, email, role, real_name, nickname, created_at";
+  const TEACHER_SIGNUP_CODE = "lueggsb";
 
   const text = {
     accountNotLoggedIn: "\u8d26\u6237\u672a\u767b\u5f55",
@@ -83,7 +84,7 @@
     return data;
   }
 
-  async function ensureProfile(user) {
+  async function ensureProfile(user, preferredRole = null) {
     if (!user) return null;
 
     const existingProfile = await fetchProfile(user.id);
@@ -92,9 +93,10 @@
       return currentProfile;
     }
 
+    const role = normalizeRole(preferredRole);
     const { data, error } = await supabaseClient
       .from("profiles")
-      .insert({ id: user.id, email: user.email, role: "student" })
+      .insert({ id: user.id, email: user.email, role })
       .select("*")
       .single();
 
@@ -109,16 +111,23 @@
       currentProfile = null;
       return null;
     }
-    return ensureProfile(session.user);
+    return ensureProfile(session.user, session.user.user_metadata?.signup_role);
   }
 
-  async function signUp(email, password) {
-    const { data, error } = await supabaseClient.auth.signUp({ email, password });
+  async function signUp(email, password, role = "student") {
+    const cleanRole = normalizeRole(role);
+    const { data, error } = await supabaseClient.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { signup_role: cleanRole }
+      }
+    });
     if (error) throw error;
 
     if (data.session?.user) {
       currentUser = data.session.user;
-      await ensureProfile(data.session.user);
+      await ensureProfile(data.session.user, cleanRole);
     } else if (data.user) {
       currentUser = data.user;
     }
@@ -130,7 +139,7 @@
     const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
     if (error) throw error;
     currentUser = data.user;
-    if (data.user) await ensureProfile(data.user);
+    if (data.user) await ensureProfile(data.user, data.user.user_metadata?.signup_role);
     return data;
   }
 
@@ -293,6 +302,13 @@
     document.getElementById("loginTab")?.addEventListener("click", () => showAuthPanel("login"));
     document.getElementById("signupTab")?.addEventListener("click", () => showAuthPanel("signup"));
 
+    document.querySelectorAll("input[name='signupRole']").forEach((input) => {
+      input.addEventListener("change", () => {
+        const role = document.querySelector("input[name='signupRole']:checked")?.value || "student";
+        document.getElementById("teacherCodeField")?.classList.toggle("hidden", role !== "teacher");
+      });
+    });
+
     document.getElementById("loginForm")?.addEventListener("submit", async (event) => {
       event.preventDefault();
       clearAuthMessage();
@@ -318,6 +334,8 @@
       const email = document.getElementById("signupEmail").value.trim();
       const password = document.getElementById("signupPassword").value;
       const confirmPassword = document.getElementById("signupPasswordConfirm").value;
+      const selectedRole = document.querySelector("input[name='signupRole']:checked")?.value || "student";
+      const teacherCode = document.getElementById("teacherCode")?.value.trim() || "";
 
       if (password.length < 6) {
         setAuthMessage("\u5bc6\u7801\u81f3\u5c11\u9700\u8981 6 \u4f4d\u3002");
@@ -327,9 +345,13 @@
         setAuthMessage("\u4e24\u6b21\u8f93\u5165\u7684\u5bc6\u7801\u4e0d\u4e00\u81f4\uff0c\u8bf7\u91cd\u65b0\u8f93\u5165\u3002");
         return;
       }
+      if (selectedRole === "teacher" && teacherCode !== TEACHER_SIGNUP_CODE) {
+        setAuthMessage("教师代码不正确，请重新输入。");
+        return;
+      }
 
       try {
-        const data = await signUp(email, password);
+        const data = await signUp(email, password, selectedRole);
         if (!data.session) {
           setAuthMessage("\u6ce8\u518c\u6210\u529f\u3002\u8bf7\u5148\u5b8c\u6210\u90ae\u7bb1\u786e\u8ba4\uff0c\u7136\u540e\u56de\u5230\u8fd9\u91cc\u767b\u5f55\u3002", "success");
           showAuthPanel("login");

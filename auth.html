@@ -44,8 +44,22 @@
       <form id="signupForm" class="auth-form hidden">
         <div class="auth-form-heading">
           <h2>&#21019;&#24314;&#36134;&#25143;</h2>
-          <p>&#27880;&#20876;&#21518;&#38656;&#35201;&#22635;&#20889;&#30495;&#23454;&#22995;&#21517;&#65292;&#40664;&#35748;&#36523;&#20221;&#26159;&#23398;&#29983;&#12290;</p>
+          <p>请选择账户身份。教师账户需要输入教师代码。</p>
         </div>
+        <div class="auth-role-picker" role="radiogroup" aria-label="选择身份">
+          <label>
+            <input type="radio" name="signupRole" value="student" checked>
+            <span>学生</span>
+          </label>
+          <label>
+            <input type="radio" name="signupRole" value="teacher">
+            <span>教师</span>
+          </label>
+        </div>
+        <label id="teacherCodeField" class="hidden">
+          <span>教师代码</span>
+          <input type="password" id="teacherCode" autocomplete="off" placeholder="请输入教师代码">
+        </label>
         <label>
           <span>&#37038;&#31665;</span>
           <input type="email" id="signupEmail" autocomplete="email" required>
