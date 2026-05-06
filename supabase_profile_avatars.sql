@@ -3,6 +3,41 @@
 alter table public.profiles
   add column if not exists avatar_url text;
 
+alter table public.profiles enable row level security;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_policies
+    where schemaname = 'public'
+      and tablename = 'profiles'
+      and policyname = 'Users can insert their own profile'
+  ) then
+    create policy "Users can insert their own profile"
+    on public.profiles
+    for insert
+    to authenticated
+    with check (id = auth.uid());
+  end if;
+end $$;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_policies
+    where schemaname = 'public'
+      and tablename = 'profiles'
+      and policyname = 'Users can update their own profile'
+  ) then
+    create policy "Users can update their own profile"
+    on public.profiles
+    for update
+    to authenticated
+    using (id = auth.uid())
+    with check (id = auth.uid());
+  end if;
+end $$;
+
 insert into storage.buckets (id, name, public)
 values ('avatars', 'avatars', true)
 on conflict (id) do update set public = true;
