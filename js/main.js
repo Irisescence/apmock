@@ -351,6 +351,7 @@ window.viewHistory = async function(examId) {
       localStorage.setItem('currentExamId', examId);
       localStorage.setItem('reviewMode', 'true');
       localStorage.setItem('teacherReviewMode', 'true');
+      localStorage.removeItem('reviewReturnUrl');
       localStorage.removeItem('reviewUserId');
       localStorage.removeItem('reviewAnswers');
       localStorage.removeItem('reviewScore');
@@ -373,6 +374,7 @@ window.viewHistory = async function(examId) {
     localStorage.setItem('currentExamId', examId);
     localStorage.setItem('reviewMode', 'true');
     localStorage.removeItem('teacherReviewMode');
+    localStorage.removeItem('reviewReturnUrl');
     localStorage.setItem('reviewUserId', examDB.userId || '');
     localStorage.setItem('reviewAnswers', JSON.stringify(userHistory[0].answers));
     localStorage.setItem('reviewScore', userHistory[0].score);
@@ -473,6 +475,7 @@ window.startExam = function(examId) {
   localStorage.removeItem('reviewAnswers');
   localStorage.removeItem('reviewScore');
   localStorage.removeItem('reviewTotal');
+  localStorage.removeItem('reviewReturnUrl');
   localStorage.setItem('currentExamId', examId);
   window.location.href = 'exam.html';
 };

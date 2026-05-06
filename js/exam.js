@@ -195,6 +195,7 @@
 
   window.goBackHome = function() {
     if (timerInterval) clearInterval(timerInterval);
+    const returnUrl = localStorage.getItem("reviewReturnUrl");
     localStorage.removeItem("currentExamId");
     localStorage.removeItem("reviewMode");
     localStorage.removeItem("teacherReviewMode");
@@ -202,7 +203,8 @@
     localStorage.removeItem("reviewAnswers");
     localStorage.removeItem("reviewScore");
     localStorage.removeItem("reviewTotal");
-    location.href = "index.html";
+    localStorage.removeItem("reviewReturnUrl");
+    location.href = returnUrl || "index.html";
   };
 
   window.confirmExit = function() {
@@ -285,7 +287,7 @@
   function renderHeader(centerTitle, centerStatus, rightContent) {
     const isReadOnlyReview = examSubmitted && reviewMode;
     const leftContent = isReadOnlyReview
-      ? `<button class="btn btn-sm" onclick="goBackHome()">Return</button>`
+      ? `<button class="btn btn-sm" onclick="goBackHome()">${localStorage.getItem("reviewReturnUrl") ? "Return to Previous Page" : "Return"}</button>`
       : `
           <button class="btn btn-sm" onclick="confirmExit()">Exit</button>
           ${!isHistoryReview ? `<button class="btn btn-sm" onclick="${isPaused ? "resumeExam()" : "pauseExam()"}">${isPaused ? "Resume" : "Pause"}</button>` : ""}

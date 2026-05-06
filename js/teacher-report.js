@@ -130,7 +130,7 @@
                 <td>${group.averagePercent}%</td>
                 <td>${group.attempts}</td>
                 <td>${formatDate(group.latest.completedAt)}</td>
-                <td><button class="btn btn-sm" type="button" onclick="reviewAttempt('${group.latest.id}')">Review</button></td>
+                <td><button class="btn btn-sm" type="button" onclick="openStudentAttemptHistory('${group.userId}')">Review</button></td>
               </tr>
             `).join("")}
           </tbody>
@@ -229,11 +229,68 @@
     localStorage.setItem("currentExamId", examData.id);
     localStorage.setItem("reviewMode", "true");
     localStorage.setItem("teacherReviewMode", "true");
+    localStorage.removeItem("reviewReturnUrl");
     localStorage.removeItem("reviewUserId");
     localStorage.removeItem("reviewAnswers");
     localStorage.removeItem("reviewScore");
     localStorage.removeItem("reviewTotal");
     window.location.href = "exam.html";
+  };
+
+  window.openStudentAttemptHistory = function(userId) {
+    const studentAttempts = attempts
+      .filter((record) => (record.userId || "unknown") === userId)
+      .sort((a, b) => new Date(b.completedAt || 0) - new Date(a.completedAt || 0));
+
+    if (!studentAttempts.length) return;
+
+    const latest = studentAttempts[0];
+    const modal = document.createElement("div");
+    modal.className = "teacher-report-modal-overlay";
+    modal.innerHTML = `
+      <div class="teacher-report-modal" role="dialog" aria-modal="true" aria-labelledby="studentAttemptHistoryTitle">
+        <div class="teacher-report-modal-head">
+          <div>
+            <div class="exam-kicker">STUDENT HISTORY</div>
+            <h2 id="studentAttemptHistoryTitle">${escapeHtml(studentName(latest))}</h2>
+            <p>${escapeHtml(studentMeta(latest))}</p>
+          </div>
+          <button class="btn" type="button" onclick="closeStudentAttemptHistory()">Close</button>
+        </div>
+        <div class="teacher-report-table-wrap">
+          <table class="teacher-report-table">
+            <thead>
+              <tr>
+                <th>提交时间</th>
+                <th>成绩</th>
+                <th>正确率</th>
+                <th>记录</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              ${studentAttempts.map((record, index) => `
+                <tr>
+                  <td>${formatDate(record.completedAt)}</td>
+                  <td>${Number(record.score || 0)}/${Number(record.total || 0)}</td>
+                  <td>${percent(record.score, record.total)}%</td>
+                  <td>${index === 0 ? "Latest attempt" : `Attempt ${studentAttempts.length - index}`}</td>
+                  <td><button class="btn btn-sm" type="button" onclick="reviewAttempt('${record.id}')">Review</button></td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+    modal.addEventListener("click", (event) => {
+      if (event.target === modal) closeStudentAttemptHistory();
+    });
+    document.body.appendChild(modal);
+  };
+
+  window.closeStudentAttemptHistory = function() {
+    document.querySelector(".teacher-report-modal-overlay")?.remove();
   };
 
   window.reviewAttempt = function(attemptId) {
@@ -246,6 +303,7 @@
     localStorage.setItem("reviewAnswers", JSON.stringify(record.answers || []));
     localStorage.setItem("reviewScore", Number(record.score || 0));
     localStorage.setItem("reviewTotal", Number(record.total || 0));
+    localStorage.setItem("reviewReturnUrl", `teacher-report.html?examId=${encodeURIComponent(examData.id)}`);
     window.location.href = "exam.html";
   };
 

@@ -216,6 +216,50 @@ body {
   color: var(--ap-blue);
 }
 
+.teacher-report-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(8, 22, 48, 0.48);
+}
+
+.teacher-report-modal {
+  width: min(760px, 100%);
+  max-height: min(760px, 88vh);
+  overflow-y: auto;
+  background: var(--ap-paper);
+  border: 1px solid var(--ap-border);
+  box-shadow: 0 20px 50px rgba(8, 22, 48, 0.24);
+  padding: 24px;
+}
+
+.teacher-report-modal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 18px;
+  border-bottom: 1px solid var(--ap-border);
+  margin-bottom: 18px;
+  padding-bottom: 16px;
+}
+
+.teacher-report-modal-head h2 {
+  margin: 4px 0;
+  color: var(--ap-blue);
+  font-family: "Segoe UI", Tahoma, sans-serif;
+  font-size: 22px;
+}
+
+.teacher-report-modal-head p {
+  color: var(--ap-muted);
+  font-family: "Segoe UI", Tahoma, sans-serif;
+  font-size: 13px;
+}
+
 .exam-top-bar {
   position: sticky;
   top: 0;
