@@ -305,9 +305,12 @@
     document.querySelectorAll("input[name='signupRole']").forEach((input) => {
       input.addEventListener("change", () => {
         const role = document.querySelector("input[name='signupRole']:checked")?.value || "student";
-        document.getElementById("teacherCodeField")?.classList.toggle("is-hidden", role !== "teacher");
+        const teacherCodeInput = document.getElementById("teacherCode");
+        if (teacherCodeInput) {
+          teacherCodeInput.disabled = role !== "teacher";
+          teacherCodeInput.placeholder = role === "teacher" ? "请输入教师代码" : "选择教师后填写教师代码";
+        }
         if (role !== "teacher") {
-          const teacherCodeInput = document.getElementById("teacherCode");
           if (teacherCodeInput) teacherCodeInput.value = "";
         }
       });

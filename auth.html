@@ -58,6 +58,10 @@
           <span>&#20877;&#27425;&#36755;&#20837;&#23494;&#30721;</span>
           <input type="password" id="signupPasswordConfirm" autocomplete="new-password" minlength="6" required>
         </label>
+        <label id="teacherCodeField" class="teacher-code-field">
+          <span>教师代码</span>
+          <input type="password" id="teacherCode" autocomplete="off" placeholder="选择教师后填写教师代码" disabled>
+        </label>
         <div class="auth-role-picker" role="radiogroup" aria-label="选择身份">
           <label>
             <input type="radio" name="signupRole" value="student" checked>
@@ -68,10 +72,6 @@
             <span>教师</span>
           </label>
         </div>
-        <label id="teacherCodeField" class="teacher-code-field is-hidden">
-          <span>教师代码</span>
-          <input type="password" id="teacherCode" autocomplete="off" placeholder="请输入教师代码">
-        </label>
         <button class="auth-submit" type="submit">&#27880;&#20876;&#24182;&#32487;&#32493;</button>
       </form>
 

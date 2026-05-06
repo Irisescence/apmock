@@ -1399,7 +1399,10 @@ body.exam-mode .exam-session {
 
 .auth-role-picker {
   display: flex;
+  flex-direction: row;
   align-items: center;
+  justify-content: flex-start;
+  flex-wrap: nowrap;
   gap: 8px;
 }
 
@@ -1414,6 +1417,7 @@ body.exam-mode .exam-session {
   background: #f8fbff;
   color: #1e2b5e;
   font-size: 0.92rem;
+  min-width: 72px;
   cursor: pointer;
 }
 
@@ -1430,15 +1434,12 @@ body.exam-mode .exam-session {
 
 .teacher-code-field {
   min-height: 76px;
-  opacity: 1;
-  visibility: visible;
-  transition: opacity 0.16s ease, visibility 0.16s ease;
 }
 
-.teacher-code-field.is-hidden {
-  opacity: 0;
-  visibility: hidden;
-  pointer-events: none;
+.teacher-code-field input:disabled {
+  background: #eef3fa;
+  color: #8a98ad;
+  cursor: not-allowed;
 }
 
 .auth-form input {
