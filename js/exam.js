@@ -127,7 +127,7 @@
       && window.apAuth.isTeacherLike(profile.role);
     const reviewUserId = localStorage.getItem("reviewUserId");
 
-    if (isHistoryReview && !teacherReviewMode && reviewUserId !== profile.id) {
+    if (isHistoryReview && !teacherReviewMode && reviewUserId !== profile.id && !window.apAuth.isTeacherLike(profile.role)) {
       localStorage.removeItem("reviewMode");
       localStorage.removeItem("teacherReviewMode");
       localStorage.removeItem("reviewUserId");

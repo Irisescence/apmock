@@ -334,6 +334,10 @@ body {
   white-space: nowrap;
 }
 
+.teacher-spacer {
+  gap: 8px;
+}
+
 .history-btn {
   width: fit-content;
   border: 0;

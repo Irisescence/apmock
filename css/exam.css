@@ -73,6 +73,149 @@ body {
   font-size: 13px;
 }
 
+.teacher-report-layout {
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr);
+  gap: 24px;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 34px 24px 48px;
+}
+
+.teacher-report-sidebar {
+  position: sticky;
+  top: 96px;
+  align-self: start;
+  background: var(--ap-paper);
+  border: 1px solid var(--ap-border);
+  box-shadow: var(--ap-shadow);
+  padding: 24px;
+}
+
+.teacher-report-sidebar h2,
+.teacher-report-panel h2 {
+  font-family: "Segoe UI", Tahoma, sans-serif;
+  font-size: 18px;
+  color: var(--ap-blue);
+}
+
+.teacher-report-stats {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.teacher-report-stat {
+  border: 1px solid var(--ap-border);
+  background: #f8fafd;
+  padding: 14px;
+}
+
+.teacher-report-stat span {
+  display: block;
+  font-family: "Segoe UI", Tahoma, sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ap-muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.teacher-report-stat strong {
+  display: block;
+  margin-top: 6px;
+  font-family: "Segoe UI", Tahoma, sans-serif;
+  font-size: 22px;
+  color: var(--ap-blue);
+}
+
+.teacher-report-main {
+  display: grid;
+  gap: 22px;
+}
+
+.teacher-report-panel {
+  background: var(--ap-paper);
+  border: 1px solid var(--ap-border);
+  box-shadow: var(--ap-shadow);
+  padding: 24px;
+}
+
+.teacher-report-panel-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 18px;
+  border-bottom: 1px solid var(--ap-border);
+  padding-bottom: 14px;
+}
+
+.teacher-report-panel-head p {
+  font-family: "Segoe UI", Tahoma, sans-serif;
+  color: var(--ap-muted);
+  font-size: 13px;
+}
+
+.teacher-report-table-wrap {
+  overflow-x: auto;
+}
+
+.teacher-report-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: "Segoe UI", Tahoma, sans-serif;
+  font-size: 14px;
+}
+
+.teacher-report-table th {
+  text-align: left;
+  color: var(--ap-muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid var(--ap-border);
+  padding: 10px 12px;
+}
+
+.teacher-report-table td {
+  border-bottom: 1px solid #e5ebf4;
+  padding: 13px 12px;
+  vertical-align: middle;
+}
+
+.teacher-report-table td strong {
+  display: block;
+  color: var(--ap-ink);
+}
+
+.teacher-report-table td span {
+  display: block;
+  margin-top: 2px;
+  color: var(--ap-muted);
+  font-size: 12px;
+}
+
+.teacher-report-empty,
+.teacher-report-error {
+  background: var(--ap-paper);
+  border: 1px solid var(--ap-border);
+  padding: 28px;
+  color: var(--ap-muted);
+  font-family: "Segoe UI", Tahoma, sans-serif;
+}
+
+.teacher-report-error {
+  max-width: 560px;
+  margin: 80px auto;
+  text-align: center;
+}
+
+.teacher-report-error h1 {
+  margin-bottom: 12px;
+  color: var(--ap-blue);
+}
+
 .exam-top-bar {
   position: sticky;
   top: 0;
@@ -904,6 +1047,14 @@ body {
 
   .review-layout {
     grid-template-columns: 1fr;
+  }
+
+  .teacher-report-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .teacher-report-sidebar {
+    position: static;
   }
 
   .review-sidebar {

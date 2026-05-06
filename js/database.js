@@ -363,7 +363,8 @@ class ExamDatabase {
       score: row.score,
       total: row.total,
       answers: Array.isArray(row.answers) ? row.answers : [],
-      completedAt: row.completed_at
+      completedAt: row.completed_at,
+      student: row.student || null
     };
   }
 
@@ -432,6 +433,40 @@ class ExamDatabase {
     const { data, error } = await query;
     if (error) throw error;
     return (data || []).map((row) => this.mapAttemptRow(row));
+  }
+
+  async getTeacherExamAttempts(examId) {
+    const client = this.getClient();
+    if (!this.userId) await this.open();
+
+    const { data: attemptRows, error } = await client
+      .from('attempts')
+      .select('*')
+      .eq('exam_id', examId)
+      .order('completed_at', { ascending: false });
+
+    if (error) throw error;
+    const rows = attemptRows || [];
+    const userIds = Array.from(new Set(rows.map((row) => row.user_id).filter(Boolean)));
+
+    let profilesById = new Map();
+    if (userIds.length) {
+      const { data: profileRows, error: profileError } = await client
+        .from('profiles')
+        .select('id, email, real_name, nickname, role')
+        .in('id', userIds);
+
+      if (profileError) {
+        console.warn('Failed to load attempt profiles:', profileError);
+      } else {
+        profilesById = new Map((profileRows || []).map((profile) => [profile.id, profile]));
+      }
+    }
+
+    return rows.map((row) => this.mapAttemptRow({
+      ...row,
+      student: profilesById.get(row.user_id) || null
+    }));
   }
 
   async getAllLatestHistory() {

@@ -234,6 +234,9 @@ async function renderExamCards() {
             <button class="history-btn" onclick="viewHistory('${exam.id}')">
               View Details
             </button>
+            <button class="history-btn" onclick="openStudentReport('${exam.id}')">
+              学生成绩面板
+            </button>
           </div>
         `;
       } else if (latestRecord) {
@@ -298,6 +301,9 @@ async function renderExamCards() {
         ? `<div class="exam-history-slot teacher-spacer">
             <button class="history-btn" onclick="viewHistory('${exam.id}')">
               View Details
+            </button>
+            <button class="history-btn" onclick="openStudentReport('${exam.id}')">
+              学生成绩面板
             </button>
           </div>`
         : '<div class="exam-history-slot empty">No previous attempt</div>';
@@ -379,6 +385,10 @@ window.viewHistory = async function(examId) {
     console.error('获取历史失败:', error);
     alert('获取历史记录失败');
   }
+};
+
+window.openStudentReport = function(examId) {
+  window.location.href = `teacher-report.html?examId=${encodeURIComponent(examId)}`;
 };
 
 // 显示历史记录弹窗
