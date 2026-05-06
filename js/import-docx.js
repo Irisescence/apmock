@@ -464,27 +464,32 @@
   }
 
   function compactExamDocForParser(examDoc) {
+    const truncateText = (value, limit) => {
+      const text = String(value || "");
+      return text.length > limit ? text.slice(0, limit) : text;
+    };
+
     return {
       file_name: examDoc.file_name,
-      blocks: (examDoc.blocks || []).slice(0, 600).map((block) => {
+      blocks: (examDoc.blocks || []).slice(0, 1200).map((block) => {
         if (block.type === "paragraph") {
           return {
             index: block.index,
             type: block.type,
-            text: block.text || "",
+            text: truncateText(block.text, 1000),
             numId: block.numId || "",
             level: block.level || "",
-            image_urls: Array.isArray(block.image_urls) ? block.image_urls : []
+            image_urls: Array.isArray(block.image_urls) ? block.image_urls.slice(0, 2) : []
           };
         }
         if (block.type === "table") {
           return {
             index: block.index,
             type: block.type,
-            markdown: block.markdown || ""
+            markdown: truncateText(block.markdown, 1800)
           };
         }
-        return { index: block.index, type: block.type, text: block.text || "" };
+        return { index: block.index, type: block.type, text: truncateText(block.text, 1000) };
       }),
       raw_text: String(examDoc.raw_text || "").slice(0, 12000)
     };
