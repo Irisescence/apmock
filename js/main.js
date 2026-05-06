@@ -90,6 +90,17 @@
     return exam.subject || '';
   }
 
+  function getSubjectDisplayName(subject) {
+    const normalized = String(subject || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+    if (normalized.includes('macroeconomics') || /\bmacro\b/.test(normalized)) return 'Macro';
+    if (normalized.includes('microeconomics') || /\bmicro\b/.test(normalized)) return 'Micro';
+    if (normalized.includes('statistics') || /\bstats?\b/.test(normalized)) return 'Stats';
+    if (normalized.includes('calculus bc') || normalized.includes('calc bc')) return 'Calculus BC';
+    if (normalized.includes('calculus ab') || normalized.includes('calc ab')) return 'Calculus AB';
+    if (normalized.includes('chemistry') || /\bchem\b/.test(normalized)) return 'Chemistry';
+    return String(subject || '').replace(/^AP\s+/i, '');
+  }
+
   function getExamYears(exam) {
     if (Number.isInteger(exam.year)) return [String(exam.year)];
     const text = `${exam.title || ''} ${exam.description || ''}`;
@@ -123,7 +134,7 @@
       const subjects = Array.from(new Set(baseExams.map(getExamSubject).filter(Boolean))).sort();
       const currentSubject = selectedSubjectFilter;
       examSubjectFilter.innerHTML = '<option value="all">全部科目</option>' + subjects
-        .map(subject => `<option value="${escapeAttribute(subject)}">${escapeAttribute(subject)}</option>`)
+        .map(subject => `<option value="${escapeAttribute(subject)}">${escapeAttribute(getSubjectDisplayName(subject))}</option>`)
         .join('');
       selectedSubjectFilter = subjects.includes(currentSubject) ? currentSubject : 'all';
       examSubjectFilter.value = selectedSubjectFilter;
@@ -269,7 +280,7 @@ async function renderExamCards() {
             <button class="icon-btn" onclick="deleteExam('${exam.id}')" title="删除">🗑</button>
           </div>
           <div class="exam-badge-row">
-            <span class="exam-badge">${getExamSubject(exam)}</span>
+            <span class="exam-badge">${getSubjectDisplayName(getExamSubject(exam))}</span>
             <span class="exam-type-badge">${typeLabel}</span>
           </div>
           <div class="exam-copy-block">
@@ -314,7 +325,7 @@ async function renderExamCards() {
             <button class="icon-btn" onclick="deleteExam('${exam.id}')" title="删除">🗑</button>
           </div>
           <div class="exam-badge-row">
-            <span class="exam-badge">${getExamSubject(exam)}</span>
+            <span class="exam-badge">${getSubjectDisplayName(getExamSubject(exam))}</span>
             <span class="exam-type-badge">${typeLabel}</span>
           </div>
           <div class="exam-copy-block">
@@ -497,11 +508,16 @@ window.startExam = function(examId) {
     
     renderQuestionsEditor(exam?.questions || [], 'mcq');
     editorModal.classList.remove('hidden');
+    editorModal.querySelector('.modal')?.scrollTo({ top: 0 });
   };
 
   window.closeEditor = function() {
     editorModal.classList.add('hidden');
     editingExamId = null;
+  };
+
+  window.scrollEditorToTop = function() {
+    editorModal.querySelector('.modal')?.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   window.editExam = function(examId) {
