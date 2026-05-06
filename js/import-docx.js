@@ -15,13 +15,34 @@
   function normalizeFileName(name) { return String(name || "file").replace(/[^a-z0-9._-]+/gi, "-").replace(/-+/g, "-").slice(0, 80); }
   function getExtension(name, fallback = "png") { const match = String(name || "").match(/\.([a-z0-9]+)$/i); return match ? match[1].toLowerCase() : fallback; }
   function mimeFromExt(ext) { return ({ jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", gif: "image/gif", webp: "image/webp", svg: "image/svg+xml" })[ext] || "application/octet-stream"; }
+  function sleep(ms) { return new Promise((resolve) => setTimeout(resolve, ms)); }
+  function isIgnoredFolderFile(file) {
+    const name = String(file?.name || "").toLowerCase();
+    const path = String(file?.webkitRelativePath || file?.name || "").toLowerCase();
+    if (!name) return true;
+    if (name.startsWith("~$")) return true;
+    if ([".ds_store", "thumbs.db", "desktop.ini"].includes(name)) return true;
+    return path.split("/").some((part) => part === "__macosx" || part === ".git");
+  }
+  function getImportFiles(files) {
+    return Array.from(files || []).filter((file) => !isIgnoredFolderFile(file));
+  }
+  function importStepError(step, error) {
+    return new Error(`${step}失败：${error?.message || error || "未知错误"}`);
+  }
 
   async function uploadBytes(path, bytes, contentType) {
     const client = window.apAuth.supabaseClient;
-    const { error } = await client.storage.from(STORAGE_BUCKET).upload(path, bytes, { contentType, upsert: true });
-    if (error) throw error;
-    const { data } = client.storage.from(STORAGE_BUCKET).getPublicUrl(path);
-    return data.publicUrl;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      const { error } = await client.storage.from(STORAGE_BUCKET).upload(path, bytes, { contentType, upsert: true });
+      if (!error) {
+        const { data } = client.storage.from(STORAGE_BUCKET).getPublicUrl(path);
+        return data.publicUrl;
+      }
+      if (attempt === 3) throw error;
+      await sleep(800 * attempt);
+    }
+    throw new Error("Storage upload failed.");
   }
 
   function getAttr(node, localName) {
@@ -187,7 +208,7 @@
   }
 
   function chooseFiles(files) {
-    const list = Array.from(files || []);
+    const list = getImportFiles(files);
     const docxFiles = list.filter((file) => /\.docx$/i.test(file.name));
     const answerCandidates = list.filter((file) => ANSWER_FILE_RE.test(file.name) && /\.(docx|txt)$/i.test(file.name));
     let answerFile = answerCandidates[0] || null;
@@ -418,15 +439,28 @@
   }
 
   async function callParser(payload) {
-    let response;
-    try {
-      response = await fetch("/api/parse-docx", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-    } catch (error) {
-      throw new Error("无法连接 AI 解析接口。可能是文件过大、网络中断或 Vercel 函数超时。");
+    const maxAttempts = 3;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      let response;
+      try {
+        showStatus(`正在尽全力识别试卷QaQ，可能需要3-5分钟，期间请不要打开试卷哦！（第 ${attempt}/${maxAttempts} 次）`);
+        response = await fetch("/api/parse-docx", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      } catch (error) {
+        if (attempt === maxAttempts) {
+          throw new Error("无法连接 AI 解析接口。可能是网络中断、Vercel 函数超时或请求被代理断开。");
+        }
+        await sleep(1600 * attempt);
+        continue;
+      }
+      const data = await response.json().catch(() => ({}));
+      if (response.ok) return data;
+
+      const message = data.error || `DOCX parse failed (${response.status}).`;
+      const retryable = response.status === 408 || response.status === 429 || response.status >= 500;
+      if (!retryable || attempt === maxAttempts) throw new Error(message);
+      await sleep(1600 * attempt);
     }
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(data.error || `DOCX parse failed (${response.status}).`);
-    return data;
+    throw new Error("AI 解析失败。");
   }
 
   function compactExamDocForParser(examDoc) {
@@ -490,6 +524,7 @@
     modal.className = "docx-preview-overlay";
     modal.innerHTML = `
       <div class="docx-preview-modal">
+        <button type="button" class="docx-scroll-top-btn" id="docxScrollTopBtn" title="回到顶部">↑</button>
         <div class="docx-preview-header"><div><h2>DOCX 导入预览</h2><p>AI 只识别题目和选项；答案只来自答案文档或教师手动填写。</p></div><button type="button" class="icon-btn" id="closeDocxPreviewBtn">×</button></div>
         <div class="docx-exam-fields"><label>标题<input id="docxExamTitle" value="${escapeHtml(parsedExam.exam_title || "Imported AP Exam")}"></label><label>科目<select id="docxExamSubject">${SUBJECTS.map((subject) => `<option value="${subject}" ${subject === parsedExam.subject ? "selected" : ""}>${subject}</option>`).join("")}</select></label><label>时长（分钟）<input id="docxExamTime" type="number" min="1" value="${Number(parsedExam.time_limit || parsedExam.timeLimit || 70)}"></label><label>可见性<select id="docxExamVisibility"><option value="public" ${parsedExam.is_public || parsedExam.isPublic ? "selected" : ""}>公开</option><option value="teacher">仅老师可见</option><option value="private" ${parsedExam.is_public || parsedExam.isPublic ? "" : "selected"}>仅自己可见</option></select></label><label class="docx-desc-field">描述<input id="docxExamDesc" value="${escapeHtml(parsedExam.description || "Imported from DOCX")}"></label></div>
         <div id="docxQuestionList" class="docx-question-list"></div>
@@ -498,6 +533,7 @@
     document.body.appendChild(modal);
     renderQuestionList();
     $("closeDocxPreviewBtn").addEventListener("click", () => modal.remove());
+    $("docxScrollTopBtn").addEventListener("click", () => modal.querySelector(".docx-preview-modal")?.scrollTo({ top: 0, behavior: "smooth" }));
     $("addDocxQuestionBtn").addEventListener("click", () => { importState.questions.push({ type: "mcq", question_number: importState.questions.length + 1, question_text: "", question_images: [], options: OPTION_LABELS.slice(0, 4).map((label) => ({ label, text: "", image_urls: [] })), correct_answer: "", explanation: "", warnings: ["manual_new_question"] }); renderQuestionList(); });
     $("confirmDocxImportBtn").addEventListener("click", confirmImport);
   }
@@ -507,7 +543,7 @@
     list.innerHTML = importState.questions.map((question, index) => {
       const status = question.warnings?.length ? "warning" : "complete";
       const images = (question.question_images || []).map((url) => `<img src="${escapeHtml(url)}" alt="question image">`).join("");
-      return `<div class="docx-question-card ${status}" data-question-index="${index}"><div class="docx-question-card-head"><strong>Question ${index + 1}</strong><span>${status}</span><button type="button" class="btn btn-sm btn-danger" data-action="delete-question">删除</button></div>${question.warnings?.length ? `<div class="docx-warnings">${question.warnings.map(escapeHtml).join(" / ")}</div>` : ""}<label>题干<textarea data-field="question-text">${escapeHtml(question.question_text || "")}</textarea></label><div class="docx-image-strip">${images}</div><div class="docx-options">${(question.options || []).map((option, optionIndex) => optionHtml(option, optionIndex)).join("")}</div><label>正确答案<select data-field="correct-answer"><option value="">未填写</option>${OPTION_LABELS.map((label) => `<option value="${label}" ${question.correct_answer === label ? "selected" : ""}>${label}</option>`).join("")}</select></label><label>解析<textarea data-field="explanation">${escapeHtml(question.explanation || "")}</textarea></label></div>`;
+      return `<div class="docx-question-card ${status}" data-question-index="${index}"><div class="docx-question-card-head"><strong>Question ${index + 1}</strong><span>${status}</span><button type="button" class="btn btn-sm btn-danger" data-action="delete-question">删除</button></div>${question.warnings?.length ? `<div class="docx-warnings">${question.warnings.map(escapeHtml).join(" / ")}</div>` : ""}<label>题干<textarea data-field="question-text">${escapeHtml(question.question_text || "")}</textarea></label><div class="docx-image-strip">${images}</div><div class="docx-options">${(question.options || []).map((option, optionIndex) => optionHtml(option, optionIndex)).join("")}</div><label>正确答案<select data-field="correct-answer"><option value="">未填写</option>${OPTION_LABELS.map((label) => `<option value="${label}" ${question.correct_answer === label ? "selected" : ""}>${label}</option>`).join("")}</select></label></div>`;
     }).join("");
     list.querySelectorAll("[data-action='delete-question']").forEach((button) => button.addEventListener("click", () => { const card = button.closest(".docx-question-card"); importState.questions.splice(Number(card.dataset.questionIndex), 1); renderQuestionList(); }));
   }
@@ -523,7 +559,7 @@
       if (!questionText) warnings.push("missing_question_text");
       if (options.length < 2) warnings.push("missing_or_too_few_options");
       if (!correctAnswer) warnings.push("missing_correct_answer");
-      return { ...original, question_number: index + 1, question_text: questionText, options, correct_answer: correctAnswer, explanation: card.querySelector("[data-field='explanation']").value.trim(), warnings };
+      return { ...original, question_number: index + 1, question_text: questionText, options, correct_answer: correctAnswer, explanation: "", warnings };
     });
     const accessLevel = $("docxExamVisibility").value || "private";
     importState = { ...importState, exam_title: $("docxExamTitle").value.trim(), subject: $("docxExamSubject").value, description: $("docxExamDesc").value.trim(), timeLimit: Number($("docxExamTime").value) || 70, accessLevel, isPublic: accessLevel === "public", questions };
@@ -537,20 +573,51 @@
     const incomplete = state.questions.filter((question) => question.warnings?.length);
     if (incomplete.length && !confirm(`${incomplete.length} 道题仍有警告，确定继续导入吗？`)) return;
     const examData = { title: state.exam_title || "Imported AP Exam", subject: state.subject || "AP MacroEconomics", description: state.description || "Imported from DOCX", timeLimit: state.timeLimit || 70, examType: "mcq", accessLevel: state.accessLevel || "private", isPublic: state.accessLevel === "public", questions: state.questions.map((question) => ({ type: "mcq", text: question.question_text, options: question.options, correct: answerToIndex(question.correct_answer), image: question.question_images?.[0] || null, image_urls: question.question_images || [], explanation: question.explanation || "", import_warnings: question.warnings || [] })) };
-    try { showStatus("正在保存到 Supabase..."); await examDB.saveExam(examData); hideStatus(); alert("导入成功。页面将刷新显示新试卷。"); window.location.reload(); } catch (error) { hideStatus(); alert("导入失败：" + error.message); }
+    try {
+      showStatus("正在保存到 Supabase...");
+      await examDB.saveExam(examData);
+      hideStatus();
+      alert("导入成功。页面将刷新显示新试卷。");
+      window.location.reload();
+    } catch (error) {
+      hideStatus();
+      alert(importStepError("保存到 Supabase", error).message);
+    }
   }
 
   async function handleFiles(files) {
     if (!window.apAuth.canEditExams) { alert("只有 teacher/admin 可以导入试卷。"); return; }
-    const { examFile, answerFile } = chooseFiles(files);
+    const usableFiles = getImportFiles(files);
+    const ignoredCount = Array.from(files || []).length - usableFiles.length;
+    const { examFile, answerFile } = chooseFiles(usableFiles);
     if (!examFile) { alert("没有找到题目 DOCX 文件。"); return; }
     try {
+      if (ignoredCount > 0) console.info(`Ignored ${ignoredCount} hidden/temp upload files.`);
       showStatus("正在读取 DOCX 结构和图片...");
-      const examDoc = await parseDocxPackage(examFile);
-      const answerDoc = await readAnswerFile(answerFile);
+      let examDoc;
+      try {
+        examDoc = await parseDocxPackage(examFile);
+      } catch (error) {
+        throw importStepError("读取题目 DOCX", error);
+      }
+
+      let answerDoc;
+      try {
+        answerDoc = await readAnswerFile(answerFile);
+      } catch (error) {
+        throw importStepError("读取答案文件", error);
+      }
+
       showStatus("正在尽全力识别试卷QaQ，可能需要3-5分钟，期间请不要打开试卷哦！");
       const parserPayload = compactExamDocForParser(examDoc);
-      const parsed = normalizeTableChoiceOptions(supplementQuestionStems(await callParser({ exam_doc: parserPayload }), examDoc), examDoc);
+      let parsedByAi;
+      try {
+        parsedByAi = await callParser({ exam_doc: parserPayload });
+      } catch (error) {
+        throw importStepError("AI 识别题目", error);
+      }
+
+      const parsed = normalizeTableChoiceOptions(supplementQuestionStems(parsedByAi, examDoc), examDoc);
       const merged = mergeAnswers(parsed, answerDoc.parsed);
       if (!merged.exam_title) merged.exam_title = examFile.name.replace(/\.docx$/i, "");
       if (!merged.subject) merged.subject = "AP MacroEconomics";
