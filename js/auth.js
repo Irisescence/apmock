@@ -305,7 +305,11 @@
     document.querySelectorAll("input[name='signupRole']").forEach((input) => {
       input.addEventListener("change", () => {
         const role = document.querySelector("input[name='signupRole']:checked")?.value || "student";
-        document.getElementById("teacherCodeField")?.classList.toggle("hidden", role !== "teacher");
+        document.getElementById("teacherCodeField")?.classList.toggle("is-hidden", role !== "teacher");
+        if (role !== "teacher") {
+          const teacherCodeInput = document.getElementById("teacherCode");
+          if (teacherCodeInput) teacherCodeInput.value = "";
+        }
       });
     });
 
